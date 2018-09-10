@@ -33,7 +33,7 @@ Copyright = '(c) 2018 Yevrag35, LLC.  All rights reserved.'
 Description = 'Creates 1 or more randomly-generated strings of either static or variable length.'
 
 # Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '4.0'
+PowerShellVersion = '5.1'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''
