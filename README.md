@@ -1,4 +1,6 @@
 ﻿# New-RandomPassword
+[![version](https://img.shields.io/powershellgallery/v/NewRandomPassword.svg)](https://www.powershellgallery.com/packages/NewRandomPassword)
+[![downloads](https://img.shields.io/powershellgallery/dt/NewRandomPassword.svg?label=downloads)](https://www.powershellgallery.com/stats/packages/NewRandomPassword?groupby=Version)
 
 Just as the name of the cmdlet suggests, it generates as many random password as you want in either:
 
