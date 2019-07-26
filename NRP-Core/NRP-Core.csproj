@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <RootNamespace>MG.NewRandomPassword</RootNamespace>
+    <AssemblyName>NewRandomPassword-Core</AssemblyName>
+    <LangVersion>7.3</LangVersion>
+    <Description>Creates 1 or more randomly-generated strings of either static or variable length.</Description>
+    <Company>Yevrag35, LLC.</Company>
+    <Authors>Mike Garvey</Authors>
+    <Copyright>Copyright © 2019 Yevrag35, LLC.</Copyright>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/Yevrag35/NewRandomPassword-Core/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/Yevrag35/NewRandomPassword-Core</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Yevrag35/NewRandomPassword-Core</RepositoryUrl>
+    <RepositoryType>Git</RepositoryType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="6.2.2" />
+  </ItemGroup>
+
+</Project>
