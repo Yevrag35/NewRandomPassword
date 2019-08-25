@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
@@ -15,6 +15,10 @@
     <RepositoryType>Git</RepositoryType>
     <Version>1.1.0</Version>
   </PropertyGroup>
+
+	<ItemGroup>
+		<Compile Include="..\NRP-DotNet\**\*.cs" Exclude="..\NRP-DotNet\bin\**\*.cs;..\NRP-DotNet\obj\**\*.cs;..\NRP-DotNet\Properties\*.cs" />
+	</ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>full</DebugType>
