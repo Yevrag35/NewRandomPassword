@@ -122,7 +122,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = 'Core & Desktop re-publish'
+        ReleaseNotes = 'Fixed security flaw'
 
     } # End of PSData hashtable
 

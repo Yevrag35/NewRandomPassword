@@ -116,7 +116,7 @@ namespace MG.NewRandomPassword.Cmdlets
                     this.PasswordLength = MinimumLength;
 
                 else if (MaximumLength > MinimumLength)
-                    this.PasswordLength = Convert.ToInt32((GetSeed() % (MaximumLength + 1 - MinimumLength)) + MinimumLength);
+                    this.PasswordLength = Convert.ToInt32((CryptoDictionary.GetSeed() % (MaximumLength + 1 - MinimumLength)) + MinimumLength);
 
                 else
                     throw new ArgumentException("The minimum length can NOT be larger than the maximum length!");
@@ -177,22 +177,22 @@ namespace MG.NewRandomPassword.Cmdlets
                     char[] grp = charGroups[g];
                     if (Password.Count < PasswordLength)
                     {
-                        uint index = GetSeed();
+                        uint index = CryptoDictionary.GetSeed();
                         while (Password.ContainsKey(index))
-                            index = GetSeed();
+                            index = CryptoDictionary.GetSeed();
 
-                        Password.Add(index, GetRandomChar(GetSeed(), grp));
+                        Password.Add(index, GetRandomChar(CryptoDictionary.GetSeed(), grp));
                     }
                 }
 
                 // Fill out with chars from allChars...
                 for (int p = Password.Count; p < PasswordLength; p++)
                 {
-                    uint index = GetSeed();
+                    uint index = CryptoDictionary.GetSeed();
                     while (Password.ContainsKey(index))
-                        index = GetSeed();
+                        index = CryptoDictionary.GetSeed();
 
-                    Password.Add(index, GetRandomChar(GetSeed(), allChars));
+                    Password.Add(index, GetRandomChar(CryptoDictionary.GetSeed(), allChars));
                 }
 
                 // ... and put it all back together again in order.
@@ -229,8 +229,8 @@ namespace MG.NewRandomPassword.Cmdlets
 
         private IComparer<KeyValuePair<uint, char>> EitherOr()
         {
-            var seed1 = this.GetSeed();
-            var seed2 = this.GetSeed();
+            var seed1 = CryptoDictionary.GetSeed();
+            var seed2 = CryptoDictionary.GetSeed();
             if (seed1 == seed2) // wow...
                 return EitherOr();
 
@@ -241,6 +241,7 @@ namespace MG.NewRandomPassword.Cmdlets
 
         private char GetRandomChar(uint seed, char[] group) => group[seed % group.Length];
 
+        [Obsolete]
         private uint GetSeed()
         {
             using (var rng = new RNGCryptoServiceProvider())
