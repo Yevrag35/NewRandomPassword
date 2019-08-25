@@ -41,7 +41,6 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Security" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="NewRandomPassword.cs" />
