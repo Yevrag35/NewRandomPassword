@@ -18,7 +18,7 @@ namespace MG.NewRandomPassword.Cmdlets
         [Parameter(Mandatory = false, Position = 0, ParameterSetName = "StaticLength")]
         [ValidateRange(1, int.MaxValue)]
         [Alias("l", "length")]
-        public int PasswordLength = 8;
+        public int PasswordLength = CryptoDictionary.DEFAULT_PASS_LENGTH;
 
         [Parameter(Mandatory = false, Position = 1)]
         [ValidateRange(1, int.MaxValue)]
@@ -91,23 +91,23 @@ namespace MG.NewRandomPassword.Cmdlets
         #region FIELDS/CONSTANTS
         private List<string> _inStrs;
         private bool _onlyec;
-        private RNGCryptoServiceProvider _rng;
 
         #endregion
 
+        #region CMDLET PROCESSING
+
         protected override void BeginProcessing()
         {
-            _rng = new RNGCryptoServiceProvider();
-
-            string[] specifiedStrs = !this.MyInvocation.BoundParameters.ContainsKey("InputStrings")
-                ? (new string[4]
+            if (!this.MyInvocation.BoundParameters.ContainsKey("InputStrings"))
+            {
+                this.InputStrings = new string[4]
                 {
                     "abcdefghijkmnpqrstuvwxyz",
                     "ABCEFGHJKLMNPQRSTUVWXYZ",
                     "23456789",
                     "!@$#%&"
-                })
-                : this.InputStrings;
+                };
+            }
 
             // If RandomLength is desired, then set the password length per iteration.
             if (ParameterSetName == "RandomLength")
@@ -129,27 +129,33 @@ namespace MG.NewRandomPassword.Cmdlets
                 if (_onlyec)
                     _inStrs.Clear();
 
-                if (!(this.ExtraCharacters is string[]))
+                if (!(this.ExtraCharacters is object[]))
                 {
                     string ecStr = null;
 
                     if (this.ExtraCharacters is char[] ecArray)
-                        ecStr = string.Join(string.Empty, ecArray);
-                    
+                        ecStr = new string(ecArray);
+
                     else if (this.ExtraCharacters is string oneEcStr)
                         ecStr = oneEcStr;
-                    
+
                     else
                         throw new ArgumentException("The argument for \"ExtraCharacters\" must only be a string, string[], or char[].");
 
                     _inStrs.Add(ecStr);
                 }
                 else
-                    _inStrs.AddRange(this.ExtraCharacters as string[]);
+                {
+                    object[] objArr = this.ExtraCharacters as object[];
+                    for (int i = 0; i < objArr.Length; i++)
+                    {
+                        if (objArr[i] is string oneStr)
+                            _inStrs.Add(oneStr);
+                    }
+                }
             }
         }
-
-        #region CMDLET PROCESSING
+        
         protected override void ProcessRecord()
         {
             // Create char arrays containing groups of possible characters.
@@ -189,24 +195,19 @@ namespace MG.NewRandomPassword.Cmdlets
                     Password.Add(index, GetRandomChar(GetSeed(), allChars));
                 }
 
-                // ... and put it all back together again.
-                char[] passChars = new char[PasswordLength];
-                for (int c = 0; c < Password.Count; c++)
-                {
-                    uint[] keys = Password.Keys.ToArray();
-                    for (int k = 0; k < keys.Length; k++)
-                    {
-                        uint key = keys[k];
-                        char oneChar = Password[key];
-                        passChars[k] = oneChar;
-                    }
-                }
+                // ... and put it all back together again in order.
+                var passChars = new List<KeyValuePair<uint, char>>(Password);
+                var comparer = this.EitherOr();
+                passChars.Sort(comparer);
 
-                WriteObject(new string(passChars));
+                char[] outPass = new char[passChars.Count];
+                for (int c = 0; c < passChars.Count; c++)
+                {
+                    outPass[c] = passChars[c].Value;
+                }
+                base.WriteObject(new string(outPass));
             }
         }
-
-        protected override void EndProcessing() => _rng.Dispose();
 
         #endregion
 
@@ -226,13 +227,28 @@ namespace MG.NewRandomPassword.Cmdlets
             return allChars.ToArray();
         }
 
+        private IComparer<KeyValuePair<uint, char>> EitherOr()
+        {
+            var seed1 = this.GetSeed();
+            var seed2 = this.GetSeed();
+            if (seed1 == seed2) // wow...
+                return EitherOr();
+
+            else return seed1 < seed2
+                    ? new LetterAscendingComparer() 
+                    : (IComparer<KeyValuePair<uint, char>>)new LetterDescendingComparer();
+        }
+
         private char GetRandomChar(uint seed, char[] group) => group[seed % group.Length];
 
         private uint GetSeed()
         {
-            byte[] rBytes = new byte[4];
-            _rng.GetBytes(rBytes);
-            return BitConverter.ToUInt32(rBytes, 0);
+            using (var rng = new RNGCryptoServiceProvider())
+            {
+                byte[] rBytes = new byte[4];
+                rng.GetBytes(rBytes);
+                return BitConverter.ToUInt32(rBytes, 0);
+            }
         }
 
         private char[][] MakeCharGroups(string[] strings)
@@ -244,6 +260,22 @@ namespace MG.NewRandomPassword.Cmdlets
                 charGroups[i] = s.ToCharArray();
             }
             return charGroups;
+        }
+
+        private class LetterAscendingComparer : IComparer<KeyValuePair<uint, char>>
+        {
+            public int Compare(KeyValuePair<uint, char> x, KeyValuePair<uint, char> y)
+            {
+                return x.Key.CompareTo(y.Key);
+            }
+        }
+
+        private class LetterDescendingComparer : IComparer<KeyValuePair<uint, char>>
+        {
+            public int Compare(KeyValuePair<uint, char> x, KeyValuePair<uint, char> y)
+            {
+                return x.Key.CompareTo(y.Key) * -1;
+            }
         }
 
         #endregion

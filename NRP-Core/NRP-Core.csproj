@@ -17,7 +17,7 @@
   </PropertyGroup>
 
 	<ItemGroup>
-		<Compile Include="..\NRP-DotNet\**\*.cs" Exclude="..\NRP-DotNet\bin\**\*.cs;..\NRP-DotNet\obj\**\*.cs;..\NRP-DotNet\Properties\*.cs" />
+		<Compile Include="..\NRP-DotNet\**\*.cs" Exclude="..\NRP-DotNet\**\*-DotNet.cs;..\NRP-DotNet\bin\**\*.cs;..\NRP-DotNet\obj\**\*.cs;..\NRP-DotNet\Properties\*.cs" />
 	</ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
