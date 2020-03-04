@@ -4,25 +4,21 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Security;
 using System.Security.Cryptography;
 
 namespace MG.NewRandomPassword
 {
-    public partial class CryptoDictionary : IEnumerable
+    public partial class CryptoDictionary : IEnumerable<ICryptoEntry>
     {
         #region FIELDS/CONSTANTS
-        internal const int DEFAULT_PASS_LENGTH = 8;
-        //private List<KeyValuePair<uint, char>> _list;
-        private List<IEnumerable<DictionaryEntry>> _list;
-        private Hashtable _ht;
+        private List<ICryptoEntry> _list;
 
         #endregion
 
         #region INDEXERS
-        //public char this[uint index]
-        //{
-        //    get => Convert.ToChar(_ht[index]);
-        //}
+        public ICryptoEntry this[int index] => _list[index];
 
         #endregion
 
@@ -32,114 +28,61 @@ namespace MG.NewRandomPassword
         #endregion
 
         #region CONSTRUCTORS
-        public CryptoDictionary() => _ht = new Hashtable(DEFAULT_PASS_LENGTH);
-
-        public CryptoDictionary(int capacity) => _ht = new Hashtable(capacity);
-        private CryptoDictionary(IDictionary pairs) => _ht = new Hashtable(pairs);
+        public CryptoDictionary() => _list = new List<ICryptoEntry>();
+        public CryptoDictionary(int passLength) => _list = new List<ICryptoEntry>(passLength);
 
         #endregion
 
         #region PUBLIC METHODS
-        public void Add(char character)
+        public void AddEntry(char character)
         {
-            uint seed = GetSeed();
-            while (_ht.ContainsKey(seed))
-                seed = GetSeed();
-
-            _ht.Add(seed, character);
-        }
-        //public IEnumerator<KeyValuePair<uint, char>> GetEnumerator() => this.ToDictionary().GetEnumerator();
-        public char GetCharacter(uint index)
-        {
-            if (_ht.ContainsKey(index))
+            ICryptoEntry ice = CryptoEntry.GenerateEntry(character);
+            while (_list.Exists(x => x.Seed.Equals(ice.Seed)) || ice.Seed.Equals(uint.MinValue))
             {
-                object obj = _ht[index];
-                return Convert.ToChar(obj);
+                ice = CryptoEntry.GenerateEntry(character);
             }
-            else
-                throw new ArgumentException(string.Format("No character with a unique index of \"{0}\" exists within this dictionary.", index));
-        }
-        IEnumerator IEnumerable.GetEnumerator() => _ht.GetEnumerator();
-        public char GetRandomCharacter()
-        {
-            uint seed = GetSeed();
-            char[] chars = _ht.Values.Cast<char>().ToArray();
-            return chars[seed % chars.Length];
+            _list.Add(ice);
         }
 
-        #endregion
-
-        #region OPERATORS/CASTS
-        public static implicit operator CryptoDictionary(Dictionary<uint, char> dict) => new CryptoDictionary(dict);
-
-        #endregion
-
-        #region PRIVATE CLASSES
-        private class EntryEquality : IEqualityComparer, IEqualityComparer<DictionaryEntry>
+        public void AddFirstEntry(char character)
         {
-            public bool Equals(DictionaryEntry x, DictionaryEntry y)
-            {
-                bool result = false;
-                if (x.Key is uint numberX && x.Value is char charX && y.Key is uint numberY && y.Value is char charY)
-                    result = numberX.Equals(numberY);
+            if (_list.Exists(x => x.Seed.Equals(uint.MinValue)))
+                throw new InvalidOperationException("Only one 1st character can be specified per dictionary.");
 
-                return result;
-            }
-            public new bool Equals(object x, object y)
-            {
-                bool result = false;
-                if (x is DictionaryEntry deX && y is DictionaryEntry deY)
-                    result = this.Equals(deX, deY);
-
-                return result;
-            }
-            public int GetHashCode(DictionaryEntry obj)
-            {
-                int hash = obj.GetHashCode();
-                if (obj.Key is uint number)
-                    hash = number.GetHashCode();
-
-                return hash;
-            }
-            public int GetHashCode(object obj)
-            {
-                int hash = obj.GetHashCode();
-                if (obj is DictionaryEntry de)
-                {
-                    hash = this.GetHashCode(de);
-                }
-                return hash;
-            }
+            ICryptoEntry ice = CryptoEntry.GenerateFirstEntry(character);
+            _list.Add(ice);
         }
 
-        private class LetterAscendingComparer : IComparer<KeyValuePair<uint, char>>
+        public void AddRandom(char[] characterGroup)
         {
-            public int Compare(KeyValuePair<uint, char> x, KeyValuePair<uint, char> y)
-            {
-                return x.Key.CompareTo(y.Key);
-            }
+            char oneChar = CryptoEntry.RandomCharFromGroup(characterGroup);
+            this.AddEntry(oneChar);
         }
 
-        private class LetterDescendingComparer : IComparer<KeyValuePair<uint, char>>
+        public string FormPassword()
         {
-            public int Compare(KeyValuePair<uint, char> x, KeyValuePair<uint, char> y)
-            {
-                return x.Key.CompareTo(y.Key) * -1;
-            }
+            if (_list.Count <= 0)
+                return null;
+
+            _list.Sort(new CryptoEntryComparer());
+            return string.Join(string.Empty, _list.Select(x => x.Character));
+        }
+
+        public IEnumerator<ICryptoEntry> GetEnumerator() => _list.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => _list.GetEnumerator();
+
+        public char GetIndex(uint index)
+        {
+            if (!_list.Exists(x => x.Seed.Equals(index)))
+                throw new Exception(string.Format("No character entry with a seed of \"{0}\" was found in the dictionary.", index));
+
+            return _list.Find(x => x.Seed.Equals(index)).Character;
         }
 
         #endregion
 
         #region BACKEND/PRIVATE METHODS
-        private Dictionary<uint, char> ToDictionary()
-        {
-            var dict = new Dictionary<uint, char>(_ht.Count);
-            foreach (DictionaryEntry de in _ht)
-            {
-                dict.Add(Convert.ToUInt32(de.Key), Convert.ToChar(de.Value));
-            }
-            return dict;
-        }
+
 
         #endregion
     }

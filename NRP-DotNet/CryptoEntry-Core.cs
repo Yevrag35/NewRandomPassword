@@ -3,11 +3,11 @@ using System.Security.Cryptography;
 
 namespace MG.NewRandomPassword
 {
-    public partial class CryptoDictionary
+    internal partial class CryptoEntry
     {
-        public static uint GetSeed()
+        internal static uint GetSeed()
         {
-            using (var rng = new RNGCryptoServiceProvider())
+            using (var rng = RandomNumberGenerator.Create())
             {
                 byte[] rBytes = new byte[4];
                 rng.GetBytes(rBytes);

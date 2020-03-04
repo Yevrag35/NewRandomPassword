@@ -1,24 +1,30 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Management.Automation;
-using System.Security.Cryptography;
+using System.Reflection;
 
-namespace MG.NewRandomPassword.Cmdlets
+namespace MG.NewRandomPassword
 {
-    [Cmdlet(VerbsCommon.New, "RandomPassword", ConfirmImpact = ConfirmImpact.None,
-        DefaultParameterSetName = "StaticLength")]
-    [CmdletBinding(PositionalBinding = false)]
+    [Cmdlet(VerbsCommon.New, "RandomPassword", ConfirmImpact = ConfirmImpact.None)]
     [OutputType(typeof(string))]
-    [Alias("rpas")]
+    [CmdletBinding(PositionalBinding = false)]
     public class NewRandomPassword : PSCmdlet
     {
-        #region PARAMETERS
+        #region FIELDS/CONSTANTS
+        private List<string> _inStrs;
+        private bool _onlyec;
+        private bool _randStatic;
 
+        #endregion
+
+        #region PARAMETERS
         [Parameter(Mandatory = false, Position = 0, ParameterSetName = "StaticLength")]
         [ValidateRange(1, int.MaxValue)]
         [Alias("l", "length")]
-        public int PasswordLength = CryptoDictionary.DEFAULT_PASS_LENGTH;
+        public int PasswordLength = 8;
 
         [Parameter(Mandatory = false, Position = 1)]
         [ValidateRange(1, int.MaxValue)]
@@ -62,13 +68,6 @@ namespace MG.NewRandomPassword.Cmdlets
                 _inStrs.AddRange(value);
             }
         }
-        //public string[] InputStrings = new string[4]
-        //{
-            //"abcdefghijkmnpqrstuvwxyz",
-            //"ABCEFGHJKLMNPQRSTUVWXYZ",
-            //"23456789",
-            //"!@$#%&"
-        //};
 
         [Parameter(Mandatory = false)]
         [Alias("chars", "ec")]
@@ -82,20 +81,20 @@ namespace MG.NewRandomPassword.Cmdlets
             set => _onlyec = value;
         }
 
+        [Parameter(Mandatory = false, ParameterSetName = "RandomLength")]
+        public SwitchParameter AllStringsTheSameLength
+        {
+            get => _randStatic;
+            set => _randStatic = value;
+        }
+
         [Parameter(Mandatory = false)]
         [Alias("fc", "FirstChar")]
         public char FirstCharacter { get; set; }
 
         #endregion
 
-        #region FIELDS/CONSTANTS
-        private List<string> _inStrs;
-        private bool _onlyec;
-
-        #endregion
-
         #region CMDLET PROCESSING
-
         protected override void BeginProcessing()
         {
             if (!this.MyInvocation.BoundParameters.ContainsKey("InputStrings"))
@@ -108,21 +107,6 @@ namespace MG.NewRandomPassword.Cmdlets
                     "!@$#%&"
                 };
             }
-
-            // If RandomLength is desired, then set the password length per iteration.
-            if (ParameterSetName == "RandomLength")
-            {
-                if (this.MinimumLength.Equals(MaximumLength))
-                    this.PasswordLength = MinimumLength;
-
-                else if (MaximumLength > MinimumLength)
-                    this.PasswordLength = Convert.ToInt32((CryptoDictionary.GetSeed() % (MaximumLength + 1 - MinimumLength)) + MinimumLength);
-
-                else
-                    throw new ArgumentException("The minimum length can NOT be larger than the maximum length!");
-            }
-
-            
 
             if (this.MyInvocation.BoundParameters.ContainsKey("ExtraCharacters"))
             {
@@ -155,64 +139,68 @@ namespace MG.NewRandomPassword.Cmdlets
                 }
             }
         }
-        
+
         protected override void ProcessRecord()
         {
             // Create char arrays containing groups of possible characters.
-            char[][] charGroups = MakeCharGroups(this.InputStrings);
+            char[][] charGroups = this.MakeCharGroups(this.InputStrings);
             // Create a single char array encompassing all possible characters.
-            char[] allChars = AllCharactersOfStrings(charGroups);
+            char[] allChars = this.AllCharactersOfStrings(charGroups);
 
-            for (int i = 0; i < Count; i++)
+            if (_randStatic)
+                this.PasswordLength = this.NewRandomLength();
+
+            for (int i = 0; i < this.Count; i++)
             {
-                var Password = new Dictionary<uint, char>();
+                int length = this.PasswordLength;
+                if (this.ParameterSetName == "RandomLength" && !_randStatic)
+                {
+                    if (!_randStatic)
+                    {
+                        if (this.MinimumLength == this.MaximumLength)
+                            length = this.MinimumLength;
+
+                        else if (this.MaximumLength < this.MinimumLength)
+                            throw new ArgumentException("The minimum length can NOT be larger than the maximum length!");
+
+                        else
+                            length = this.NewRandomLength();
+                    }
+                }
+
+                // new password object
+                var password = new CryptoDictionary(length);
+
 
                 // If 'FirstChar' is defined, randomize first char in password from that string.
                 if (MyInvocation.BoundParameters.ContainsKey("FirstCharacter"))
-                    Password.Add(0, FirstCharacter);
+                    password.AddFirstEntry(this.FirstCharacter);
 
                 // Randomize one character from each group
                 for (int g = 0; g < charGroups.Length; g++)
                 {
-                    char[] grp = charGroups[g];
-                    if (Password.Count < PasswordLength)
+                    char[] grp = charGroups[i];
+                    if (password.Count < length)
                     {
-                        uint index = CryptoDictionary.GetSeed();
-                        while (Password.ContainsKey(index))
-                            index = CryptoDictionary.GetSeed();
-
-                        Password.Add(index, GetRandomChar(CryptoDictionary.GetSeed(), grp));
+                        password.AddRandom(grp);
                     }
                 }
 
                 // Fill out with chars from allChars...
-                for (int p = Password.Count; p < PasswordLength; p++)
-                {
-                    uint index = CryptoDictionary.GetSeed();
-                    while (Password.ContainsKey(index))
-                        index = CryptoDictionary.GetSeed();
 
-                    Password.Add(index, GetRandomChar(CryptoDictionary.GetSeed(), allChars));
+                for (int p = password.Count; p < length; p++)
+                {
+                    password.AddRandom(allChars);
                 }
 
                 // ... and put it all back together again in order.
-                var passChars = new List<KeyValuePair<uint, char>>(Password);
-                var comparer = this.EitherOr();
-                passChars.Sort(comparer);
-
-                char[] outPass = new char[passChars.Count];
-                for (int c = 0; c < passChars.Count; c++)
-                {
-                    outPass[c] = passChars[c].Value;
-                }
-                base.WriteObject(new string(outPass));
+                base.WriteObject(password.FormPassword());
             }
         }
 
         #endregion
 
-        #region PRIVATE/BACKEND METHODS
-
+        #region BACKEND METHODS
         private char[] AllCharactersOfStrings(char[][] charGroups)
         {
             var allChars = new List<char>();
@@ -226,32 +214,6 @@ namespace MG.NewRandomPassword.Cmdlets
             }
             return allChars.ToArray();
         }
-
-        private IComparer<KeyValuePair<uint, char>> EitherOr()
-        {
-            var seed1 = CryptoDictionary.GetSeed();
-            var seed2 = CryptoDictionary.GetSeed();
-            if (seed1 == seed2) // wow...
-                return EitherOr();
-
-            else return seed1 < seed2
-                    ? new LetterAscendingComparer() 
-                    : (IComparer<KeyValuePair<uint, char>>)new LetterDescendingComparer();
-        }
-
-        private char GetRandomChar(uint seed, char[] group) => group[seed % group.Length];
-
-        [Obsolete]
-        private uint GetSeed()
-        {
-            using (var rng = new RNGCryptoServiceProvider())
-            {
-                byte[] rBytes = new byte[4];
-                rng.GetBytes(rBytes);
-                return BitConverter.ToUInt32(rBytes, 0);
-            }
-        }
-
         private char[][] MakeCharGroups(string[] strings)
         {
             char[][] charGroups = new char[strings.Length][];
@@ -263,21 +225,7 @@ namespace MG.NewRandomPassword.Cmdlets
             return charGroups;
         }
 
-        private class LetterAscendingComparer : IComparer<KeyValuePair<uint, char>>
-        {
-            public int Compare(KeyValuePair<uint, char> x, KeyValuePair<uint, char> y)
-            {
-                return x.Key.CompareTo(y.Key);
-            }
-        }
-
-        private class LetterDescendingComparer : IComparer<KeyValuePair<uint, char>>
-        {
-            public int Compare(KeyValuePair<uint, char> x, KeyValuePair<uint, char> y)
-            {
-                return x.Key.CompareTo(y.Key) * -1;
-            }
-        }
+        private int NewRandomLength() => Convert.ToInt32((CryptoEntry.GetSeed() % (this.MaximumLength + 1 - this.MinimumLength)) + this.MinimumLength);
 
         #endregion
     }

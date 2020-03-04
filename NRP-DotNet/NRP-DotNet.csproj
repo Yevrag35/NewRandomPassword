@@ -43,9 +43,12 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="CryptoDictionary-Core.cs" />
-    <Compile Include="CryptoDictionary-DotNet.cs" />
+    <None Include="CryptoEntry-Core.cs" />
     <Compile Include="CryptoDictionary.cs" />
+    <Compile Include="CryptoEntry-DotNet.cs" />
+    <Compile Include="CryptoEntry.cs" />
+    <Compile Include="ICryptoDictionary.cs" />
+    <Compile Include="ICryptoEntry.cs" />
     <Compile Include="NewRandomPassword.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
