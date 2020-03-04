@@ -25,13 +25,13 @@ foreach ($line in $assInfo)
         $vers = $line -replace '^\s*\[assembly\:\sAssemblyFileVersion\(\"(.*?)\"\)\]$', '$1';
     }
 }
-$allFiles = Get-ChildItem $ModuleFileDirectory -Include * -Exclude *.old -Recurse;
-$References = Join-Path "$ModuleFileDirectory\.." "Assemblies";
+#$allFiles = Get-ChildItem $ModuleFileDirectory -Include * -Exclude *.old -Recurse;
+#$References = Join-Path "$ModuleFileDirectory\.." "Assemblies";
 
 [string[]]$allDlls = Get-ChildItem $References -Include *.dll -Exclude 'System.Management.Automation.dll' -Recurse | Select -ExpandProperty Name;
-[string[]]$allFormats = $allFiles | ? { $_.Extension -eq ".ps1xml" } | Select -ExpandProperty Name;
+#[string[]]$allFormats = $allFiles | ? { $_.Extension -eq ".ps1xml" } | Select -ExpandProperty Name;
 
-$manifestFile = "PoshTypes.psd1"
+$manifestFile = "NewRandomPassword-Beta.psd1"
 
 $allFiles | Copy-Item -Destination $DebugDirectory -Force;
 
