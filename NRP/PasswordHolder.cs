@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace NRP
 {
-    public class PasswordHolder : IDisposable, IEnumerable<(uint, char)>
+    internal sealed class PasswordHolder : IDisposable, IEnumerable<(uint, char)>
     {
         private IComparer<(uint, char)> _comparer;
         private bool disposed;
@@ -29,9 +27,17 @@ namespace NRP
                 _secStr = new SecureString();
             }
         }
-        public PasswordHolder() : this(true) => _list = new List<(uint, char)>(4);
+        //public PasswordHolder() : this(true) => _list = new List<(uint, char)>(8);
         public PasswordHolder(int capacity) : this(true) => _list = new List<(uint, char)>(capacity);
 
+        public void AddFirstCharacter(char character) => _secStr.AppendChar(character);
+        public void AddRandomCharacter(char[] group, int howMany = 1)
+        {
+            for (int i = 0; i < howMany; i++)
+            {
+                this.AddCharacter(group[this.GetSeed() % group.Length]);
+            }
+        }
         public void AddCharacter(char character)
         {
             uint seed = this.GetSeed();
@@ -110,21 +116,14 @@ namespace NRP
         #region IDISPOSABLE
         public void Dispose()
         {
-            this.Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-        protected virtual void Dispose(bool disposing)
-        {
             if (disposed)
                 return;
 
-            if (disposing)
-            {
-                _list.Clear();
-                _rng.Dispose();
-                _secStr.Dispose();
-                disposed = true;
-            }
+            _list.Clear();
+            _rng.Dispose();
+            _secStr.Dispose();
+            disposed = true;
+            GC.SuppressFinalize(this);
         }
 
         #endregion
