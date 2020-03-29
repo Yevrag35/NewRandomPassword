@@ -18,11 +18,15 @@ namespace NRP
     internal sealed class NRPasswordGenerator : PasswordGenerator, IPasswordGenerator
     {
         private char[][] _charGroups;
+        private bool UseRandomLengths => this.MaxLength.HasValue && this.MinLength.HasValue;
 
-        public int CreateLength { get; private set; } = 8;
+        public int CreateLength { get; private set; } = 4;
         public char FirstCharacter { get; set; }
         public bool HasFirstCharacter => this.FirstCharacter > 0;
+        public int? MaxLength { get; set; }
+        public int? MinLength { get; set; }
         public int NumberToCreate { get; set; } = 1;
+
 
         private NRPasswordGenerator(char[][] charGroups)
         {
@@ -43,6 +47,16 @@ namespace NRP
             this.CreateLength = length;
         }
 
+        public byte[] Generate(IPasswordFormer former, int length, char[] allChars)
+        {
+            if (this.HasFirstCharacter)
+                former.AddFirstCharacter(this.FirstCharacter);
+
+            this.AddRandomFromEachGroup(former);
+            this.FillOutRestOfPassword(former, length, allChars);
+
+            return former.CreateAsByteArray();
+        }
         public string[] Generate()
         {
             string[] passes = new string[this.NumberToCreate];
@@ -56,43 +70,48 @@ namespace NRP
         public byte[][] GenerateAsByteArrays()
         {
             char[] allChars = Characters.ToSingleArray(_charGroups);
-
+            int length = this.CreateLength;
             byte[][] arrays = new byte[this.NumberToCreate][];
             for (int i = 0; i < this.NumberToCreate; i++)
             {
-                using (var holder = new PasswordHolder(this.CreateLength))
+                if (this.UseRandomLengths)
+                    length = this.GetRandomLength();
+
+                using (var holder = new PasswordHolder(length))
                 {
-                    if (this.HasFirstCharacter)
-                        holder.AddFirstCharacter(this.FirstCharacter);
-
-                    this.AddRandomFromEachGroup(holder);
-                    this.FillOutRestOfPassword(holder, allChars);
-
-                    arrays[i] = holder.CreateAsByteArray();
+                    arrays[i] = this.Generate(holder, length, allChars);
                 }
             }
             return arrays;
         }
 
-        private void AddRandomFromEachGroup(PasswordHolder holder)
+        private void AddRandomFromEachGroup(IPasswordFormer holder)
         {
             for (int i = 0; i < _charGroups.Length; i++)
             {
-                holder.AddRandomCharacter(_charGroups[i]);
+                holder.AddRandomCharacter(_charGroups[i], 1);
             }
         }
-        private void FillOutRestOfPassword(PasswordHolder holder, char[] allChars)
+        private void FillOutRestOfPassword(IPasswordFormer holder, int totalLength, char[] allChars)
         {
-            holder.AddRandomCharacter(allChars, this.CreateLength - holder.Length);
+            holder.AddRandomCharacter(allChars, totalLength - holder.Length);
         }
-        public void SetRandomLength(int minLength, int maxLength)
+
+        public int GetRandomLength(ISeeder seeder)
         {
-            if (this.CreateLength != 0)
-                return;
+            if (!this.UseRandomLengths)
+                throw new ArgumentException("Generating random lengths requires min and max values as seeds.");
+
+            return Convert.ToInt32(seeder.GetSeed() % (this.MaxLength + 1 - this.MinLength) + this.MinLength);
+        }
+        public int GetRandomLength()
+        {
+            if (!this.UseRandomLengths)
+                throw new ArgumentException("Generating random lengths requires min and max values as seeds.");
 
             using (var rng = RandomNumberGenerator.Create())
             {
-                this.CreateLength = Convert.ToInt32(PasswordHolder.GetSeed(rng) % (maxLength + 1 - minLength) + minLength);
+                return Convert.ToInt32(PasswordHolder.GetSeed(rng) % (this.MaxLength + 1 - this.MinLength) + this.MinLength);
             }
         }
     }

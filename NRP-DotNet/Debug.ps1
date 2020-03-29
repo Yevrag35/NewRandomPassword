@@ -1,2 +1,2 @@
 ﻿$curDir = Split-Path -Parent $MyInvocation.MyCommand.Definition;
-Import-Module "$curDir\NewRandomPassword-Beta.psd1";
+Import-Module "$curDir\NRP.dll", "$curDir\NewRandomPassword.dll"

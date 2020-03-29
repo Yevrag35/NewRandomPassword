@@ -7,10 +7,13 @@ namespace NRP
         int CreateLength { get; }
         char FirstCharacter { get; set; }
         bool HasFirstCharacter { get; }
+        int? MaxLength { get; set; }
+        int? MinLength { get; set; }
         int NumberToCreate { get; set; }
 
+        byte[] Generate(IPasswordFormer former, int length, char[] fromChars);
         string[] Generate();
         byte[][] GenerateAsByteArrays();
-        void SetRandomLength(int minLength, int maxLength);
+        int GetRandomLength(ISeeder seeder);
     }
 }

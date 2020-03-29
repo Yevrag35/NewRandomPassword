@@ -7,16 +7,17 @@ using System.Security.Cryptography;
 
 namespace NRP
 {
-    internal sealed class PasswordHolder : IDisposable, IEnumerable<(uint, char)>
+    internal sealed class PasswordHolder : IPasswordFormer, ISeeder
     {
         private IComparer<(uint, char)> _comparer;
         private bool disposed;
         private GCHandle _handle;
+        private short _hasFirst;
         private List<(uint, char)> _list;
         private RandomNumberGenerator _rng;
         private SecureString _secStr;
 
-        public int Length => _list.Count;
+        public int Length => _list.Count + _hasFirst;
 
         private PasswordHolder(bool internalConst)
         {
@@ -30,15 +31,7 @@ namespace NRP
         //public PasswordHolder() : this(true) => _list = new List<(uint, char)>(8);
         public PasswordHolder(int capacity) : this(true) => _list = new List<(uint, char)>(capacity);
 
-        public void AddFirstCharacter(char character) => _secStr.AppendChar(character);
-        public void AddRandomCharacter(char[] group, int howMany = 1)
-        {
-            for (int i = 0; i < howMany; i++)
-            {
-                this.AddCharacter(group[this.GetSeed() % group.Length]);
-            }
-        }
-        public void AddCharacter(char character)
+        private void AddCharacter(char character)
         {
             uint seed = this.GetSeed();
             while (seed == 0u || _list.Exists(x => x.Item1 == seed))
@@ -47,21 +40,22 @@ namespace NRP
             }
             _list.Add((seed, character));
         }
-
-        public string CreateAsString()
+        public void AddFirstCharacter(char character)
         {
-            if (this.Length <= 0)
-                return null;
-
-            _list.Sort(_comparer);
-            char[] chars = new char[_list.Count];
-            for (int i = 0; i < _list.Count; i++)
+            if (_hasFirst < 1)
             {
-                chars[i] = _list[i].Item2;
+                _secStr.AppendChar(character);
+                _hasFirst = 1;
             }
-
-            return new string(chars);
         }
+        public void AddRandomCharacter(char[] group, int howMany = 1)
+        {
+            for (int i = 0; i < howMany; i++)
+            {
+                this.AddCharacter(group[this.GetSeed() % group.Length]);
+            }
+        }
+
         public byte[] CreateAsByteArray()
         {
             _list.Sort(_comparer);
@@ -76,16 +70,32 @@ namespace NRP
             IntPtr unManagedPtr = IntPtr.Zero;
 
             SecureStringToByteArray(unManagedPtr, _secStr, ref plainText);
+            Marshal.ZeroFreeBSTR(unManagedPtr);
+
             return plainText;
         }
+        public string CreateAsString()
+        {
+            if (this.Length <= 0)
+                return null;
 
-        public void ClearPasswordFromMemory(IntPtr ptr, ref byte[] plainText)
+            _list.Sort(_comparer);
+            char[] chars = new char[_list.Count];
+            for (int i = 0; i < _list.Count; i++)
+            {
+                chars[i] = _list[i].Item2;
+            }
+
+            return new string(chars);
+        }
+
+        public void ClearPasswordFromMemory(ref byte[] plainText)
         {
             this.Dispose();
             Array.Clear(plainText, 0, plainText.Length);
             _handle.Free();
-            if (ptr != IntPtr.Zero)
-                Marshal.ZeroFreeBSTR(ptr);
+            //if (ptr != IntPtr.Zero)
+            //    Marshal.ZeroFreeBSTR(ptr);
         }
         private static void SecureStringToByteArray(IntPtr ptr, SecureString cipherText, ref byte[] plainText)
         {
@@ -129,16 +139,17 @@ namespace NRP
         #endregion
 
         #region ENUMERATORS
-        public IEnumerator<(uint, char)> GetEnumerator() => _list.GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => _list.GetEnumerator();
+        //public IEnumerator<(uint, char)> GetEnumerator() => _list.GetEnumerator();
+        //IEnumerator IEnumerable.GetEnumerator() => _list.GetEnumerator();
 
         #endregion
 
-        #region SEED
+        #region SEEDER
         private uint GetSeed()
         {
             return GetSeed(_rng);
         }
+        uint ISeeder.GetSeed() => this.GetSeed();
         public static uint GetSeed(RandomNumberGenerator rng)
         {
             byte[] bytes = new byte[4];
