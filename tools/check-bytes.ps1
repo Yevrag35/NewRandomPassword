@@ -13,6 +13,7 @@
 		UTF-8 BOM                                  -Fix strips it
 		CRLF line endings                          -Fix turns them into LF
 		stray CR (one not followed by LF)          reported only
+		CR CR LF (a stray CR before a CRLF)        reported only, CRLF included
 		UTF-16 BOM                                 reported only
 		bytes that are not valid UTF-8             reported only
 		U+FFFD replacement character               reported only
@@ -21,20 +22,25 @@
 	-Fix rewrites a file only for the first two, and leaves every other byte as it was. The rest have
 	no single right fix: a stray CR may be a line break or junk, the real encoding behind invalid
 	UTF-8 is unknown, the character a U+FFFD stands in for is already gone, and .editorconfig sets
-	no insert_final_newline rule to restore.
+	no insert_final_newline rule to restore. A CRLF right after a stray CR stays as well: without its
+	CR, the stray CR would sit in front of the LF, and the next -Fix would delete it as the CR of a
+	CRLF, a decision nobody made.
 
 	U+FFFD is valid UTF-8, so the UTF-8 check passes it, but a literal one in a text file almost
 	always marks a character that an earlier decode could not map. A file that needs the character
 	itself should spell it as an escape, such as [char]0xFFFD in PowerShell.
 
 	Git covers less of this than it seems to. text=auto eol=lf turns CRLF into LF when a file is
-	staged, so CRLF alone never reaches a commit - but Git never strips a BOM, and under text=auto
-	one stray CR makes Git treat the whole file as binary and skip normalizing it, CRLFs included.
+	staged, unless the copy already in the index has CRLF: text=auto keeps that file's line endings
+	as they are until git add --renormalize. Git never strips a BOM either, and under text=auto one
+	stray CR makes Git treat the whole file as binary and skip normalizing it, CRLFs included.
 	Trailing whitespace is out of scope: git diff --check already flags it on changed lines, and two
 	trailing spaces are a deliberate line break in Markdown.
 
 	Which files get checked: with no -Path, every file changed since -Base (staged or not) plus
-	untracked files that are not ignored. A file whose only change is CRLF is not in that list -
+	untracked files that are not ignored. -Base counts from the newest commit HEAD shares with it
+	(git merge-base), so when it names a branch that has moved on since HEAD left it, that branch's
+	later commits don't count as changes here. A file whose only change is CRLF is not in that list -
 	git diff normalizes it before comparing and sees nothing - so pass it, or a directory holding
 	it, to check it anyway. A directory inside the repo expands to its tracked and untracked files,
 	skipping ignored ones; an ignored directory, or one outside the repo, expands to every file
@@ -42,8 +48,8 @@
 	own test), unless it starts with a UTF-16 BOM, which is checked first.
 
 	Exit codes: 0 when nothing needs attention, including when -Fix fixed everything it found;
-	1 when something still does; 2 when a path was missing or unreadable, -Base did not resolve, or
-	no -Path was given outside a git repository.
+	1 when something still does; 2 when a path was missing or unreadable, -Base did not resolve or
+	shares no history with HEAD, or no -Path was given outside a git repository.
 
 .EXAMPLE
 	.\tools\check-bytes.ps1
@@ -66,8 +72,9 @@ param (
 	[Parameter(Mandatory = $false, Position = 0, ValueFromRemainingArguments = $true)]
 	[string[]] $Path,
 
-	# Revision the final-newline check compares against, and the starting point of the default file
-	# list. Anything git rev-parse accepts.
+	# Revision to compare against: the default file list starts there, and the final-newline check
+	# compares each file with its copy there. Anything git rev-parse accepts. When HEAD doesn't
+	# descend from it, the newest commit HEAD shares with it stands in (git merge-base).
 	[Parameter(Mandatory = $false)]
 	[string] $Base = 'HEAD',
 
@@ -179,17 +186,34 @@ $topLevel = Invoke-Git $here @('rev-parse', '--show-toplevel')
 $repoRoot = ($topLevel.ExitCode -eq 0) ? [System.IO.Path]::GetFullPath([System.Text.Encoding]::UTF8.GetString($topLevel.Output).Trim()) : $null
 
 # Files that differ from -Base: the only ones whose final newline can have changed, and the first
-# half of the default file list.
+# half of the default file list. Both compare with the newest commit HEAD shares with -Base, which is
+# -Base itself unless it has moved on since HEAD left it. Comparing with the tip of a branch that has
+# moved on would count its later commits as changes made here, final newlines included.
 $changedSet = [System.Collections.Generic.HashSet[string]]::new($pathComparer)
 $changed = @()
+$baseLabel = $Base
 if ($null -ne $repoRoot) {
 
-	if ((Invoke-Git $repoRoot @('rev-parse', '--verify', '--quiet', "${Base}^{commit}")).ExitCode -ne 0) {
+	$resolved = Invoke-Git $repoRoot @('rev-parse', '--verify', '--quiet', "${Base}^{commit}")
+	if ($resolved.ExitCode -ne 0) {
 
 		Note "-Base '$Base' does not name a commit in $repoRoot" Red
 		exit 2
 	}
-	$changed = @(Get-GitPathList @('diff', '--name-only', '-z', '--diff-filter=d', $Base, '--'))
+	$baseTip = [System.Text.Encoding]::UTF8.GetString($resolved.Output).Trim()
+	$mergeBase = Invoke-Git $repoRoot @('merge-base', $baseTip, 'HEAD')
+	if ($mergeBase.ExitCode -ne 0) {
+
+		Note "-Base '$Base' shares no history with HEAD" Red
+		exit 2
+	}
+	$baseCommit = [System.Text.Encoding]::UTF8.GetString($mergeBase.Output).Trim()
+	if ($baseCommit -ne $baseTip) {
+
+		$baseLabel = [System.Text.Encoding]::UTF8.GetString((Invoke-Git $repoRoot @('rev-parse', '--short', $baseCommit)).Output).Trim()
+		Note "comparing with $baseLabel, the newest commit HEAD shares with $Base"
+	}
+	$changed = @(Get-GitPathList @('diff', '--name-only', '-z', '--diff-filter=d', $baseCommit, '--'))
 	foreach ($relative in $changed) {
 		$null = $changedSet.Add([System.IO.Path]::GetFullPath($relative, $repoRoot))
 	}
@@ -210,7 +234,7 @@ if (-not $Path) {
 	foreach ($relative in $changed + $untracked) {
 		Add-File ([System.IO.Path]::GetFullPath($relative, $repoRoot))
 	}
-	Note "$($files.Count) file(s) changed since $Base or untracked"
+	Note "$($files.Count) file(s) changed since $baseLabel or untracked"
 }
 else {
 
@@ -304,11 +328,21 @@ foreach ($file in $files) {
 	# without any costs one call. The cast matters: an [int] needle never equals a byte element.
 	$crlfAt = [System.Collections.Generic.List[int]]::new()
 	$strayAt = [System.Collections.Generic.List[int]]::new()
+	$crCrLfAt = [System.Collections.Generic.List[int]]::new()
 	$at = [Array]::IndexOf($bytes, [byte]13)
 	while ($at -ge 0) {
 
 		if ($at + 1 -lt $length -and $bytes[$at + 1] -eq 10) {
-			$crlfAt.Add($at)
+
+			# A stray CR right before this CRLF was the last one recorded. The two are reported as a
+			# pair and neither is fixed: without this CR, the stray one would pass for a CRLF's.
+			if ($at -gt 0 -and $bytes[$at - 1] -eq 13) {
+				$strayAt.RemoveAt($strayAt.Count - 1)
+				$crCrLfAt.Add($at - 1)
+			}
+			else {
+				$crlfAt.Add($at)
+			}
 		}
 		else {
 			$strayAt.Add($at)
@@ -321,6 +355,9 @@ foreach ($file in $files) {
 
 		# Lines are counted by LF, so a file using bare CRs as line breaks puts them all on line 1.
 		$reportOnly.Add("$($strayAt.Count) stray CR(s), not part of a CRLF, on $(Format-LineList $bytes $strayAt)")
+	}
+	if ($crCrLfAt.Count -gt 0) {
+		$reportOnly.Add("$($crCrLfAt.Count) CR CR LF sequence(s) on $(Format-LineList $bytes $crCrLfAt), which -Fix leaves alone: the extra CR may be a line break or junk")
 	}
 
 	# U+FFFD is EF BF BD. Only characters from U+F000 up start with 0xEF, so in most text the search
@@ -351,16 +388,16 @@ foreach ($file in $files) {
 	# since -Base has no blob to compare with.
 	if ($changedSet.Contains($file)) {
 
-		$blob = Invoke-Git $repoRoot @('cat-file', 'blob', "${Base}:$(Get-RepoRelativePath $file)")
+		$blob = Invoke-Git $repoRoot @('cat-file', 'blob', "${baseCommit}:$(Get-RepoRelativePath $file)")
 		if ($blob.ExitCode -eq 0) {
 
 			$hadNewline = $blob.Output.Length -gt 0 -and $blob.Output[-1] -eq 10
 			$hasNewline = $length -gt 0 -and $bytes[-1] -eq 10
 			if ($hadNewline -and -not $hasNewline) {
-				$reportOnly.Add("final newline removed ($Base has one)")
+				$reportOnly.Add("final newline removed ($baseLabel has one)")
 			}
 			elseif ($hasNewline -and -not $hadNewline) {
-				$reportOnly.Add("final newline added ($Base has none)")
+				$reportOnly.Add("final newline added ($baseLabel has none)")
 			}
 		}
 	}
