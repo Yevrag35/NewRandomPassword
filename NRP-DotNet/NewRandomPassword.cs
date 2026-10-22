@@ -109,18 +109,9 @@ namespace MG.NewRandomPassword.Cmdlets
                 };
             }
 
-            // If RandomLength is desired, then set the password length per iteration.
-            if (ParameterSetName == "RandomLength")
-            {
-                if (this.MinimumLength.Equals(MaximumLength))
-                    this.PasswordLength = MinimumLength;
-
-                else if (MaximumLength > MinimumLength)
-                    this.PasswordLength = Convert.ToInt32((CryptoDictionary.GetSeed() % (MaximumLength + 1 - MinimumLength)) + MinimumLength);
-
-                else
-                    throw new ArgumentException("The minimum length can NOT be larger than the maximum length!");
-            }
+            // Validate the range once here; each password gets its own random length in ProcessRecord.
+            if (ParameterSetName == "RandomLength" && MinimumLength > MaximumLength)
+                throw new ArgumentException("The minimum length can NOT be larger than the maximum length!");
 
             
 
@@ -163,19 +154,24 @@ namespace MG.NewRandomPassword.Cmdlets
             // Create a single char array encompassing all possible characters.
             char[] allChars = AllCharactersOfStrings(charGroups);
 
+            bool hasFirstChar = MyInvocation.BoundParameters.ContainsKey("FirstCharacter");
+
             for (int i = 0; i < Count; i++)
             {
-                var Password = new Dictionary<uint, char>();
+                int length = ParameterSetName == "RandomLength"
+                    ? NewRandomLength()
+                    : PasswordLength;
 
-                // If 'FirstChar' is defined, randomize first char in password from that string.
-                if (MyInvocation.BoundParameters.ContainsKey("FirstCharacter"))
-                    Password.Add(0, FirstCharacter);
+                // 'FirstCharacter' takes up one slot but stays out of the shuffle, so the
+                // random sort direction can't move it; it's written at index 0 below.
+                int randomCount = hasFirstChar ? length - 1 : length;
+                var Password = new Dictionary<uint, char>(randomCount);
 
                 // Randomize one character from each group
                 for (int g = 0; g < charGroups.Length; g++)
                 {
                     char[] grp = charGroups[g];
-                    if (Password.Count < PasswordLength)
+                    if (Password.Count < randomCount)
                     {
                         uint index = CryptoDictionary.GetSeed();
                         while (Password.ContainsKey(index))
@@ -186,7 +182,7 @@ namespace MG.NewRandomPassword.Cmdlets
                 }
 
                 // Fill out with chars from allChars...
-                for (int p = Password.Count; p < PasswordLength; p++)
+                for (int p = Password.Count; p < randomCount; p++)
                 {
                     uint index = CryptoDictionary.GetSeed();
                     while (Password.ContainsKey(index))
@@ -200,10 +196,14 @@ namespace MG.NewRandomPassword.Cmdlets
                 var comparer = this.EitherOr();
                 passChars.Sort(comparer);
 
-                char[] outPass = new char[passChars.Count];
+                char[] outPass = new char[length];
+                int offset = 0;
+                if (hasFirstChar)
+                    outPass[offset++] = FirstCharacter;
+
                 for (int c = 0; c < passChars.Count; c++)
                 {
-                    outPass[c] = passChars[c].Value;
+                    outPass[offset + c] = passChars[c].Value;
                 }
                 base.WriteObject(new string(outPass));
             }
@@ -262,6 +262,8 @@ namespace MG.NewRandomPassword.Cmdlets
             }
             return charGroups;
         }
+
+        private int NewRandomLength() => Convert.ToInt32((CryptoDictionary.GetSeed() % (MaximumLength + 1 - MinimumLength)) + MinimumLength);
 
         private class LetterAscendingComparer : IComparer<KeyValuePair<uint, char>>
         {
