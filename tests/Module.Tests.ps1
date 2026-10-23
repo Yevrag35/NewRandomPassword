@@ -34,10 +34,17 @@ Describe 'NewRandomPassword module' {
 		(Get-Item -LiteralPath $module.Path).VersionInfo.FileVersion | Should-Be $manifest.ModuleVersion
 	}
 
+	It 'does not answer a request for a dependency version that it does not reference' {
+		# Without NewRandomPassword, the load fails because no System.Memory 99.0.0.0 exists. In Windows PowerShell 5.1, the
+		# module's assembly resolver must not answer it with the module's own copy. PowerShell 7 has no such resolver.
+		{ [System.Reflection.Assembly]::Load('System.Memory, Version=99.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51') } |
+			Should-Throw -ExceptionMessage '*System.Memory, Version=99.0.0.0*'
+	}
+
 	Context 'NewRandomPassword.psm1' {
 		# A release puts each edition's build in its own folder beside the manifest, and NewRandomPassword.psm1 imports
-		# the one for the running edition. The test stages that layout with this edition's build and imports it in a new
-		# process, because this process has already loaded MG.Passwords.Shell.dll from the build's output folder.
+		# the one for the running edition. The test stages that layout with every DLL of this edition's build and imports
+		# it in a new process, because this process has already loaded MG.Passwords.Shell.dll from the build's output folder.
 		It 'loads the build for this edition' {
 			if ($PSVersionTable.PSEdition -eq 'Core') {
 				$folder = 'Core'
@@ -49,7 +56,7 @@ Describe 'NewRandomPassword module' {
 			$buildFolder = Join-Path $stage $folder
 			$null = New-Item -ItemType Directory -Path $buildFolder
 			Copy-Item -LiteralPath $manifestPath, $moduleScriptPath -Destination $stage
-			Copy-Item -LiteralPath $module.Path, (Join-Path (Split-Path -Parent $module.Path) 'MG.Passwords.dll') -Destination $buildFolder
+			Copy-Item -Path (Join-Path (Split-Path -Parent $module.Path) '*.dll') -Destination $buildFolder
 
 			$executable = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
 			$command = "`$PSModuleAutoLoadingPreference = 'None'; (Import-Module -Name '$stage\NewRandomPassword.psd1' -PassThru -ErrorAction Stop).NestedModules.Path"

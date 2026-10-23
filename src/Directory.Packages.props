@@ -5,10 +5,11 @@
 	<ItemGroup>
 		<PackageVersion Include="Microsoft.PowerShell.5.ReferenceAssemblies" Version="1.1.0" />
 		<!-- MG.Passwords.Tests hosts this PowerShell. Keep it at the same version as System.Management.Automation. -->
-		<PackageVersion Include="Microsoft.PowerShell.SDK" Version="7.6.6" />
+		<PackageVersion Include="Microsoft.PowerShell.SDK" Version="7.6.8" />
 		<PackageVersion Include="PolySharp" Version="1.16.0" />
 		<PackageVersion Include="PowerShellStandard.Library" Version="5.1.1" />
-		<PackageVersion Include="System.Management.Automation" Version="7.6.6" />
+		<PackageVersion Include="System.Management.Automation" Version="7.6.8" />
+		<PackageVersion Include="System.Memory" Version="4.6.3" />
 		<PackageVersion Include="xunit.v3" Version="4.0.2" />
 	</ItemGroup>
 </Project>

@@ -92,6 +92,10 @@ FileList = @(
     'Core\MG.Passwords.Shell.dll',
     'Desk\MG.Passwords.dll',
     'Desk\MG.Passwords.Shell.dll',
+    'Desk\System.Buffers.dll',
+    'Desk\System.Memory.dll',
+    'Desk\System.Numerics.Vectors.dll',
+    'Desk\System.Runtime.CompilerServices.Unsafe.dll',
     'NewRandomPassword.psd1',
     'NewRandomPassword.psm1'
 )
