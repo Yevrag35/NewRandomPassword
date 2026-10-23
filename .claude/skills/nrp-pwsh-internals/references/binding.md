@@ -9,6 +9,16 @@ Measured 2026-10-03 on PowerShell 7.6.6 and Windows PowerShell 5.1.26100 with a 
 - **A named argument to an `[object[]]` parameter, such as `-InputObject`:** only an `IList`, after unwrapping, supplies its elements. A hashtable, a `HashSet[T]`, a `Queue`, a string, or a LINQ iterator is one element, and a single `PSObject`-wrapped argument keeps its wrapper.
 - PowerShell never enumerates a string, whether in the pipeline, in `foreach`, or in its operators.
 
+## Named arguments to `[object]`, `[string[]]`, `[string]`, and `[char]` parameters
+
+Measured 2026-10-23 on PowerShell 7.6.8 and Windows PowerShell 5.1.26100.9711 with a throwaway `Add-Type` cmdlet. Both editions gave the same results.
+
+- **To an `[object]` parameter:** a quoted string, or a variable that holds one, arrives as the raw `string`, and `5` as an `int`. A parenthesized command's output arrives wrapped: one object, as from `(Write-Output 'xy')` or a one-line `(Get-Content ...)`, is a `PSObject`, and several are an `object[]` of `PSObject`s. A comma list such as `'x', 'y'` is an `object[]` of the raw values, a typed array such as `[char[]]'xy'` or a `[string[]]` arrives as itself, `@()` is an empty `object[]`, and `$null` is `null`.
+- **To a `[string[]]` parameter:** the binder converts each element, so `[char[]]'xy'` becomes `'x'` and `'y'`, one string per character. It unwraps `PSObject`-wrapped strings, turns `1, 2` into `'1'` and `'2'`, binds `''` as a one-element array that holds `''`, and binds `$null` as `null`.
+- **An `ArgumentTransformationAttribute`** receives the argument before that conversion: a `char[]` as itself, one command output as a `PSObject`, and several as an `object[]` of `PSObject`s. On a parameter that isn't mandatory, PowerShell calls it for `$null` too.
+- **To a `[char]` parameter:** an integer converts to the character with that code, so `5` is U+0005 and `65` is `A`, while `'5'` is the digit. A string has to be exactly one UTF-16 code unit: `''`, `'ab'`, and a surrogate pair such as an emoji fail with `CannotConvertArgumentNoMessage` ("String must be exactly one character long."). `$null` fails with `ParameterBindingFailed` ("Cannot convert null to type "System.Char"."), although `LanguagePrimitives.ConvertTo($null, [char])` gives `[char]0` (see `conversions.md`). A transformation attribute on a `[char]` parameter receives the integer itself.
+- **To a `[string]` parameter:** `5` binds as `'5'`, and `$null` binds as `null`.
+
 ## Enumerating a value the way the pipeline does
 
 Measured 2026-10-06 in both editions.
@@ -32,3 +42,6 @@ Measured 2026-10-06 in both editions, with cmdlets that take a type as their fir
 
 - `GetDynamicParameters` alone can't validate a dynamic parameter against a positional argument. Check it again in `BeginProcessing`, against the final values.
 - Pipeline input to an `[object]` parameter always arrives in a `PSObject`, and a single wrapped argument to an `[object[]]` parameter keeps its wrapper. Unwrap a value before you test its type in C# (see `psobject.md` for which unwrapping keeps a custom object).
+- A transformation attribute sees command output wrapped in `PSObject`, both a single value and each element of an `object[]`, so it unwraps each one before it tests the type.
+- A `[string[]]` parameter splits a `[char[]]` argument into one string per character. When a `char[]` has to stay one string, as a group of `-ExtraCharacters` does, a transformation attribute joins it before the binder converts it.
+- A `[char]` parameter reads a bare number as a character code, so `-FirstCharacter 5` binds U+0005, not the digit. Reading a bare digit as that digit takes a transformation attribute.

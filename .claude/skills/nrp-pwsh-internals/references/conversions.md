@@ -23,3 +23,4 @@
 ## What it means for NewRandomPassword
 
 - These facts cover `LanguagePrimitives.ConvertTo` and typed collections, not the parameter binder. Measure how a parameter binds `$null` or a value of another type before you rely on this table for it.
+- The binder doesn't follow the `[char]` row: it refuses `$null` for a `[char]` parameter with `ParameterBindingFailed` instead of binding `[char]0` (measured 2026-10-23 in both editions, see `binding.md`).

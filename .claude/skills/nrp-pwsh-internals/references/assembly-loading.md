@@ -40,9 +40,16 @@ Measured 2026-10-10 on PowerShell 7.6.6 with a binary module's Release build.
 - `$PSVersionTable.PSVersion` is a `SemanticVersion`, and `-ge [version]'7.6'` compares it with 7.6.0. It's `True` for 7.6.0, 7.6.6, 7.7.0-preview.1, and 8.0.0, and `False` for 6.2.7, 7.4.13, 7.5.4, 7.6.0-preview.5, and 7.6.0-rc.1.
 - A child scope can't shadow `$PSVersionTable`: assigning to it fails with "Cannot overwrite variable PSVersionTable because it is read-only or constant." To try a version check with other versions, run its text with the variable renamed.
 
+## What a manifest exports through a `.psm1`
+
+Measured 2026-10-23 on PowerShell 7.6.8 and Windows PowerShell 5.1.26100.9711 with a throwaway binary module laid out like NewRandomPassword: the manifest's `RootModule` is a `.psm1` whose only statement imports the DLL from a subfolder, `CmdletsToExport` names the cmdlet, and `AliasesToExport` names the alias that the cmdlet class's `[Alias]` attribute declares.
+
+- In both editions, importing the manifest exports the cmdlet and the alias, and calling the alias runs the cmdlet. The `.psm1` has no `Export-ModuleMember`. The DLL's nested module lists the alias among its own exported aliases too.
+
 ## What it means for NewRandomPassword
 
 - A module can't add binding redirects. When a Windows PowerShell 5.1 build ships a dependency whose assembly version is higher than the version another dependency references, as the `net462` builds of NuGet packages often are, the module needs an `AssemblyResolve` handler that answers only for an identity that an assembly in the module's folder references. Register it from `IModuleAssemblyInitializer.OnImport`, and only on the first call.
 - Don't build that handler's list of references in `OnImport`. Right after the import, only the module's own assembly is loaded, and the references that need an answer can come from assemblies that load later.
 - In Windows PowerShell 5.1, import the shell before `MG.Passwords.dll`, in scripts and in tests. The shell's import registers the resolver, and without it the engine's import fails as soon as one of the engine's types needs a dependency that the resolver loads.
 - PowerShell 7.5 and earlier run on .NET 9 or earlier, which can't load a `net10.0` assembly. A PowerShell 7 build that targets `net10.0` needs a check such as `$PSVersionTable.PSVersion -ge [version]'7.6'` before PowerShell loads it, with an error that names the versions the module supports.
+- `NewRandomPassword.psm1` needs no `Export-ModuleMember` for the cmdlet or `rpas`. The cmdlet class's `[Alias("rpas")]` and the manifest's `CmdletsToExport` and `AliasesToExport` export both. The tests import the DLL by its path, so only a test that imports a staged manifest covers this.
