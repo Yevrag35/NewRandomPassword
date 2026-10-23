@@ -57,7 +57,8 @@
 .EXAMPLE
 	.\tools\check-bytes.ps1 CLAUDE.md README.md
 .EXAMPLE
-	.\tools\check-bytes.ps1 NRP-DotNet -Fix
+	.\tools\check-bytes.ps1 . -Fix
+	# the whole repo except ignored files, fixing what -Fix can
 .EXAMPLE
 	.\tools\check-bytes.ps1 -Base dev
 	# everything this branch changed, compared with dev

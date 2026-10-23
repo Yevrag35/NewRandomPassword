@@ -28,7 +28,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
-    <OutputPath>..\NewRandomPassword\Core</OutputPath>
+    <OutputPath>..\..\NewRandomPassword\Core</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
