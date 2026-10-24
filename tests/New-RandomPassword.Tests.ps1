@@ -36,10 +36,9 @@ Describe 'New-RandomPassword' {
 			($names -join ', ') | Should-Be 'Count, ExtraCharacters, FirstCharacter, InputStrings, MaximumLength, MinimumLength, OnlyUseExtraCharacters, PasswordLength'
 		}
 
-		# The values are those of 1.2.0's cmdlet at accaf2e, with the changes that 2.0.0's release notes list: -ExtraCharacters
-		# takes a String[] instead of an Object, and the lengths stop at 1,048,576 instead of 2,147,483,647, or 2,147,483,646
-		# for -MinimumLength.
-		It 'declares -<Name> as 1.2.0 does, apart from the changes in the release notes' -ForEach @(
+		# The values are those of 1.2.0's cmdlet at accaf2e, except that -ExtraCharacters takes a String[] instead of an
+		# Object, and the lengths stop at 1,048,576 instead of 2,147,483,647, or 2,147,483,646 for -MinimumLength.
+		It 'declares the type, aliases, range, parameter sets, and position of -<Name>' -ForEach @(
 			@{ Name = 'PasswordLength'; Type = [int]; Aliases = 'l', 'length'; ParameterSets = 'StaticLength'; Position = 0; Mandatory = $false; Range = '1, 1048576' }
 			@{ Name = 'Count'; Type = [int]; Aliases = @(); ParameterSets = 'RandomLength', 'StaticLength'; Position = 1; Mandatory = $false; Range = '1, 2147483647' }
 			@{ Name = 'MinimumLength'; Type = [int]; Aliases = 'min', 'minlength'; ParameterSets = 'RandomLength'; Position = 'named'; Mandatory = $true; Range = '1, 1048575' }
@@ -148,7 +147,7 @@ Describe 'New-RandomPassword' {
 		}
 	}
 
-	# As in 1.2.0, whose README gives rpas 68 3 -FirstCharacter % as an example.
+	# As in 1.2.0, the first number binds to -PasswordLength and the second to -Count.
 	Context 'Positional binding' {
 		It 'binds two numbers to -PasswordLength and -Count' {
 			$passwords = New-RandomPassword 12 3

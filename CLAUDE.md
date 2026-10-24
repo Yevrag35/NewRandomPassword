@@ -12,7 +12,7 @@ The whole repo is being overhauled on `dev`. Every part of the C# solution can c
 
 ## Plans
 
-Multi-session plans live in `.ideas/`, one file per topic, and `.ideas/new-randompassword-rewrite.md` tracks the rewrite of the cmdlet. Plans are working notes, not documentation: check what one says about the code against the current tree before you build on it.
+Multi-session plans live in `.ideas/`, one file per topic. Plans are working notes, not documentation: check what one says about the code against the current tree before you build on it.
 
 ## Building and testing
 

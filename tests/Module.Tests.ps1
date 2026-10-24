@@ -69,9 +69,9 @@ Describe 'NewRandomPassword module' {
 			$output[1] | Should-Be 'New-RandomPassword'
 		}
 
-		# PowerShell 7.5 and earlier run on .NET 9 or earlier, which can't load the .NET 10 build, and the release notes
-		# promise those versions the module's own error. $PSVersionTable can't be shadowed, so the test runs the script's
-		# text with the variable renamed.
+		# PowerShell 7.5 and earlier run on .NET 9 or earlier, which can't load the .NET 10 build, so the module stops the
+		# import there with an error of its own. $PSVersionTable can't be shadowed, so the test runs the script's text with
+		# the variable renamed.
 		It 'stops the import in PowerShell <Version> with an error that names the supported versions' -ForEach @(
 			@{ Version = '6.2.7' }
 			@{ Version = '7.5.4' }
