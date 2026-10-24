@@ -2,7 +2,7 @@
 
 ## Context
 
-The overhaul on `dev` replaced the 2019 projects with three new ones, and none of them has a cmdlet yet. `MG.Passwords`, the engine (`netstandard2.0` and `net10.0`), holds only `SecureRandom`. `MG.Passwords.Shell` (`net10.0`, for PowerShell 7.6 or later) and `MG.Passwords.Shell-NETFramework` (`net48`, for Windows PowerShell 5.1, compiling every `.cs` file of the other) each build an `MG.Passwords.Shell.dll` with no commands in it. Everything around them is in place: the manifest and `NewRandomPassword.psm1` load the right build for each edition, the 5.1 build resolves its `System.Memory` dependencies, and both test suites run in both editions. This plan tracks writing the cmdlet that those pieces exist to ship: a `New-RandomPassword` that keeps what 1.2.0 users call, fixes the bugs that 1.2.0 shipped with, and runs on the new engine.
+The overhaul on `dev` replaced the 2019 projects with three new ones, and none of them has a cmdlet yet. `MG.Passwords`, the engine (`netstandard2.0` and `net10.0`), holds only `SecureRandom`. (Phase 1 has since added `CharacterSets` and `PasswordGenerator`.) `MG.Passwords.Shell` (`net10.0`, for PowerShell 7.6 or later) and `MG.Passwords.Shell-NETFramework` (`net48`, for Windows PowerShell 5.1, compiling every `.cs` file of the other) each build an `MG.Passwords.Shell.dll` with no commands in it. Everything around them is in place: the manifest and `NewRandomPassword.psm1` load the right build for each edition, the 5.1 build resolves its `System.Memory` dependencies, and both test suites run in both editions. This plan tracks writing the cmdlet that those pieces exist to ship: a `New-RandomPassword` that keeps what 1.2.0 users call, fixes the bugs that 1.2.0 shipped with, and runs on the new engine.
 
 This file is working notes. Check what it says about the code against the current tree before you build on it.
 
@@ -22,8 +22,8 @@ Done on 2026-10-23 on #4's branch, before `SecureRandom.cs` and `SecureRandomTes
 | Piece | State | Needed |
 |---|---|---|
 | Uniform secure random integers and shuffling | `src/MG.Passwords/SecureRandom.cs`, documented, with 17 tests per target in `src/MG.Passwords.Tests/SecureRandomTests.cs`. ~~Neither file is committed.~~ (#4 committed both.) | ~~Commit them (Phase 1)~~ Nothing |
-| Character sets | None | `CharacterSets` (Phase 1) |
-| Password generation | None | `PasswordGenerator` (Phase 1) |
+| Character sets | ~~None~~ (Phase 1 added `src/MG.Passwords/CharacterSets.cs`.) | ~~`CharacterSets` (Phase 1)~~ Nothing |
+| Password generation | ~~None~~ (Phase 1 added `src/MG.Passwords/PasswordGenerator.cs`.) | ~~`PasswordGenerator` (Phase 1)~~ Nothing |
 | The cmdlet | None. Both shell projects build an empty `MG.Passwords.Shell.dll`. | `NewRandomPasswordCommand` (Phase 2) |
 | Converting and checking `-ExtraCharacters` and `-FirstCharacter` input | None | Two transformation attributes and a validation attribute (Phase 2) |
 | Loading dependencies in Windows PowerShell 5.1 | `ModuleInitializer` in the `net48` shell | Nothing, as long as the engine adds no package |
@@ -141,7 +141,7 @@ A bad argument fails at binding, in a transformation or validation attribute, so
 
 ### No copies of a password are left behind
 
-The `net10.0` build writes each password straight into its string with `string.Create`. `netstandard2.0` has no `string.Create`, so that build fills a scratch buffer, `stackalloc` up to 256 characters and a rented `ArrayPool<char>` array above that, copies it into the string, and clears it. A rented array goes back with `clearArray: true`. Choosing the characters and shuffling them is the same code in both builds, and only the way the string is made differs, the way `SecureRandom` keeps its own difference between the builds inside one method.
+The `net10.0` build writes each password straight into its string with `string.Create`. `netstandard2.0` has no `string.Create`, so that build fills a scratch buffer, `stackalloc` up to 256 characters and a rented `ArrayPool<char>` array above that, copies it into the string, and clears it. ~~A rented array goes back with `clearArray: true`.~~ (Phase 1 clears the characters it wrote and then returns the array without `clearArray`, which doesn't clear an array that the pool drops instead of keeping. See Phase 1.) Choosing the characters and shuffling them is the same code in both builds, and only the way the string is made differs, the way `SecureRandom` keeps its own difference between the builds inside one method.
 
 Nothing goes through `SecureString`, a BSTR, or an `Encoding`. The archived `PasswordHolder` left an unzeroed BSTR copy of every password in memory and garbled non-ASCII characters. The returned string can't be cleared, and the GC may copy it, so the goal is only that the generator adds no copies of its own.
 
@@ -158,8 +158,8 @@ Phases 1 to 3 are verified by hand (see Verification) and keep the existing suit
 Files:
 
 - `src/MG.Passwords/SecureRandom.cs`: exists.
-- `src/MG.Passwords/CharacterSets.cs`: Phase 1.
-- `src/MG.Passwords/PasswordGenerator.cs`: Phase 1.
+- `src/MG.Passwords/CharacterSets.cs`: exists (Phase 1).
+- `src/MG.Passwords/PasswordGenerator.cs`: exists (Phase 1).
 - `src/MG.Passwords/CharacterGroupsTransformationAttribute.cs`: Phase 2.
 - `src/MG.Passwords/FirstCharacterTransformationAttribute.cs`: Phase 2.
 - `src/MG.Passwords/ValidatePasswordCharactersAttribute.cs`: Phase 2.
@@ -202,19 +202,29 @@ public sealed class NewRandomPasswordCommand : PSCmdlet
 
 ## Phasing
 
-### Phase 1 — Generation engine
+### Phase 1 — Generation engine. ✅ Done — 2026-10-24.
 
-Phase 1 adds the generator to `MG.Passwords`, without a cmdlet yet~~, and commits `SecureRandom.cs` and `SecureRandomTests.cs` with it~~. (#4 committed both before Phase 1 started.) Everything it builds is settled above, so it can start now.
+Shipped: `src/MG.Passwords/CharacterSets.cs` and `src/MG.Passwords/PasswordGenerator.cs`, both `internal`, without a cmdlet yet. Every type and member has XML documentation that follows the `csharp-xml-docs` skill, as `SecureRandom`'s members do. (#4 committed `SecureRandom.cs` and `SecureRandomTests.cs` before Phase 1 started.)
 
-- `CharacterSets` holds the seven 1.2.0 strings as `const` fields, in 1.2.0's `ValidateSet` order, so that the cmdlet's `[ValidateSet]` can name them, and `Default`, the four groups that 1.2.0 uses without `-InputStrings`.
-- `PasswordGenerator`'s constructor normalizes the groups and checks them and the first character, as **Groups are normalized once** says, and throws `ArgumentException` for no groups, an empty group, or a surrogate. The instance doesn't change after that, so one serves a whole `-Count` batch.
-- `Generate(int length)` builds one password, as **How a password is built** says, and throws `ArgumentOutOfRangeException` for a length below 1.
-- `GetLength(int minimumLength, int maximumLength)` draws a length with `SecureRandom.GetInt32(minimumLength - 1, maximumLength) + 1`. That covers the whole range without computing `maximumLength + 1`, so a range that ends at `int.MaxValue` can't overflow, and as a method of its own, it can be tested at that boundary without building a 2 GB string. It throws `ArgumentOutOfRangeException` for a minimum below 1 or above the maximum. `Generate(int minimumLength, int maximumLength)` calls it and then `Generate(int length)`.
-- When fewer slots remain than there are groups, the generator shuffles the group indices with `SecureRandom.Shuffle` and takes as many as there are slots. The indices live in a `stackalloc` buffer for up to 256 groups and in a rented array above that.
-- Strings are made as **No copies of a password are left behind** says, with 256 characters as the `stackalloc` limit.
-- Every new member gets XML documentation, following the `csharp-xml-docs` skill, as `SecureRandom`'s members do.
+- `CharacterSets` holds the seven 1.2.0 strings as `const` fields, in 1.2.0's `ValidateSet` order, so that the cmdlet's `[ValidateSet]` can name them, and `Default`, the four groups that 1.2.0 uses without `-InputStrings`. `Default` is a collection expression typed `IReadOnlyList<string>`, so it's the compiler's read-only list, not an array that a caller could cast back and change.
+- `PasswordGenerator`'s constructor normalizes the groups as **Groups are normalized once** says: it removes repeated characters within each group, ordinally, builds the fill from the distinct characters of all the groups, and keeps repeated groups. It throws `ArgumentException` for no groups, an empty group, or a surrogate in a group or as the first character, as planned, and in two cases the plan didn't name: `ArgumentNullException` for a null list, and `ArgumentException` for a null group. The instance doesn't change after that, so one serves a whole `-Count` batch.
+- `Generate(int length)` builds one password as **How a password is built** says, and throws `ArgumentOutOfRangeException` for a length below 1.
+- `GetLength(int minimumLength, int maximumLength)` draws `SecureRandom.GetInt32(minimumLength - 1, maximumLength) + 1`, which never computes `maximumLength + 1`, and throws `ArgumentOutOfRangeException` for a minimum below 1 or above the maximum. `Generate(int minimumLength, int maximumLength)` calls it and then `Generate(int length)`.
+- With fewer slots than groups, a private `FillFromRandomGroups` shuffles the group indices with `SecureRandom.Shuffle` and takes as many as there are slots. The indices live in a `stackalloc` buffer for up to 256 groups and in a rented `ArrayPool<int>` array above that.
+- A private `Fill` chooses and shuffles the characters, the same code in both builds. The `net10.0` build hands it to `string.Create`, and the `netstandard2.0` build gives it a `stackalloc` buffer for up to 256 characters and a rented `ArrayPool<char>` array above that.
 
-Predicted test changes: none.
+Two details differ from the plan:
+
+- A rented array doesn't go back with `clearArray: true`. The generator clears the characters it wrote, in whichever buffer holds them, and then returns the array, because `clearArray` doesn't clear an array that the pool drops instead of keeping. Measured on 2026-10-24 in Windows PowerShell 5.1.26100.9711: System.Buffers 4.0.5.0's shared pool cleared a returned array of 1,048,576 characters, the largest it keeps, and left one of 1,048,577 as it was. The cmdlet's cap stays within that limit, but the engine doesn't assume the cap. In PowerShell 7.6.8, the pool cleared both, because it keeps larger arrays: it handed out 2,097,152 elements for 1,048,577.
+- The group indices are cleared before their buffer is released too, because which groups a password represents tells something about it.
+
+No test changed, as predicted. Verified on 2026-10-24 with .NET SDK 10.0.402, PowerShell 7.6.8, and Windows PowerShell 5.1.26100.9711:
+
+- Both shell projects built in Debug with no warnings, and `dotnet test` passed 36 of 36, 18 per target. `tests/Invoke-Tests.ps1` passed 5 of 9 in each edition, with the audit's four failures, all from the missing cmdlet.
+- A scratch smoke script, outside the repo, imported each edition's Debug build by its path, the shell first, with auto-loading off, and reached both types through reflection. In both editions, it found the seven constants and `Default` as 1.2.0 has them; `~` at index 0, and only there, in 1,000 passwords of 8; every length from 4 to 20, and no other, across 1,000 calls of `Generate(4, 20)`; all four default groups in each of 1,000 passwords of 4; the two characters of each of 6,000 passwords of 2 always from two different groups, with each of the six pairs of groups about equally often; two `x` and one `y` from the groups `x`, `x`, and `y`; equal counts from the group `aab`, and from the groups `ab` and `bc`; U+00E9, U+00DF, U+03A9, and U+4E2D unchanged; lengths 1, 255, 256, 257, 1,048,576, and 1,048,577; 300 one-character groups, which take the rented-indices path; `GetLength` up to `int.MaxValue`; and every exception above.
+- In Windows PowerShell 5.1, System.Memory 4.0.5.0 and System.Buffers 4.0.5.0 loaded from the build folder. After `Generate(300)`, the `char` array that the pool handed out next, the one the generator had returned, held no characters, and with the clear taken out, the same check found all 300 of the password's. In both editions, the `int` array handed out after a password of 5 from the 300 groups held no indices.
+
+**Outcome:** `MG.Passwords` builds every password that the cmdlet will ask for, in both builds, with both #3 fixes and random group subsets, and leaves no copy of a password in a buffer.
 
 ### Phase 2 — The cmdlet
 
@@ -243,7 +253,7 @@ Each test follows the `nrp-testing` skill, which says how to write it for both e
 
 Engine tests, in `src/MG.Passwords.Tests/`, one class per type:
 
-- `PasswordGeneratorTests`: the first character is at index 0 of every password in a large batch; `GetLength` returns every value of a small range and no other, including a range that ends at `int.MaxValue`; every password that's long enough holds a character from each group; with fewer slots than groups, every group shows up across a batch and no password repeats one; the fill draws each distinct character equally often, repeats included, in the `AssertEquallyLikely` style of `SecureRandomTests`; a group listed twice guarantees two characters; non-ASCII characters come through unchanged; lengths 1, 256, and 257, on both sides of the `stackalloc` limit; and each `ArgumentException` and `ArgumentOutOfRangeException`.
+- `PasswordGeneratorTests`: the first character is at index 0 of every password in a large batch; `GetLength` returns every value of a small range and no other, including a range that ends at `int.MaxValue`; every password that's long enough holds a character from each group; with fewer slots than groups, every group shows up across a batch and no password repeats one; the fill draws each distinct character equally often, repeats included, in the `AssertEquallyLikely` style of `SecureRandomTests`; a group listed twice guarantees two characters; non-ASCII characters come through unchanged; lengths 1, 256, and 257, on both sides of the `stackalloc` limit; 257 groups with fewer slots, which rents the group indices; the scratch buffers coming back cleared, where the array that `ArrayPool<T>.Shared` hands out next, after a password of 257 characters (`net48` only, since `net10.0` writes into the string) or one with fewer characters than its 257 groups (both targets), holds no characters or indices, checked only after the pool has been shown to hand out the array returned to it last, as Phase 1's smoke script did; and each `ArgumentNullException`, `ArgumentException`, and `ArgumentOutOfRangeException`.
 - A class for each transformation attribute, calling `Transform` with `RunspaceFixture.EngineIntrinsics`: each accepted form, wrapped in a `PSObject` and not, and each refused one, with its exception type. For `FirstCharacterTransformationAttribute`, that includes 0, 9, 10, and a wrapped integer.
 - `ValidatePasswordCharactersAttributeTests`, through the attribute's internal rule: a control character at each end of both `char.IsControl` ranges, a lone high and a lone low surrogate, an empty string, and characters just outside those ranges, which pass.
 

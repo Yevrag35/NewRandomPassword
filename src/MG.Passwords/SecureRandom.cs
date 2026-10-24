@@ -101,6 +101,7 @@ internal static class SecureRandom
 		}
 		while (result > range);
 
+		Array.Clear(bytes, 0, bytes.Length);
 		return unchecked((int)result + fromInclusive);
 #endif
 	}
