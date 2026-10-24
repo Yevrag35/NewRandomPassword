@@ -9,17 +9,10 @@
 @{
 
 # Script module or binary module file associated with this manifest.
-RootModule = if ($PSEdition -eq "Core")
-{
-    "Core\NewRandomPassword-Core.dll"
-}
-else # Desktop
-{
-    "DotNet\NewRandomPassword.dll"
-}
+RootModule = 'NewRandomPassword.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.2.0'
+ModuleVersion = '2.0.0'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -34,7 +27,7 @@ Author = 'Mike Garvey'
 CompanyName = 'Yevrag35, LLC.'
 
 # Copyright statement for this module
-Copyright = '(c) 2019 Yevrag35, LLC.  All rights reserved.'
+Copyright = 'Copyright (c) 2019-2026 Yevrag35, LLC. All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Creates 1 or more randomly-generated strings of either static or variable length.'
@@ -49,7 +42,7 @@ PowerShellVersion = '5.1'
 # PowerShellHostVersion = ''
 
 # Minimum version of Microsoft .NET Framework required by this module. This prerequisite is valid for the PowerShell Desktop edition only.
-DotNetFrameworkVersion = '4.5.2'
+DotNetFrameworkVersion = '4.8'
 
 # Minimum version of the common language runtime (CLR) required by this module. This prerequisite is valid for the PowerShell Desktop edition only.
 # CLRVersion = ''
@@ -76,13 +69,13 @@ DotNetFrameworkVersion = '4.5.2'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = ''
+FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = 'New-RandomPassword'
 
 # Variables to export from this module
-VariablesToExport = ''
+VariablesToExport = @()
 
 # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
 AliasesToExport = 'rpas'
@@ -95,10 +88,16 @@ AliasesToExport = 'rpas'
 
 # List of all files packaged with this module
 FileList = @(
-    'Core\NewRandomPassword-Core.deps.json',
-    'Core\NewRandomPassword-Core.dll',
-    'DotNet\NewRandomPassword.dll',
-    'NewRandomPassword.psd1'
+    'Core\MG.Passwords.dll',
+    'Core\MG.Passwords.Shell.dll',
+    'Desk\MG.Passwords.dll',
+    'Desk\MG.Passwords.Shell.dll',
+    'Desk\System.Buffers.dll',
+    'Desk\System.Memory.dll',
+    'Desk\System.Numerics.Vectors.dll',
+    'Desk\System.Runtime.CompilerServices.Unsafe.dll',
+    'NewRandomPassword.psd1',
+    'NewRandomPassword.psm1'
 )
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
@@ -113,23 +112,23 @@ PrivateData = @{
                'count', 'length'
 
         # A URL to the license for this module.
-        LicenseUri = 'https://raw.githubusercontent.com/Yevrag35/NewRandomPassword-Core/master/LICENSE'
+        LicenseUri = 'https://raw.githubusercontent.com/Yevrag35/NewRandomPassword/master/LICENSE'
 
         # A URL to the main website for this project.
-        ProjectUri = 'https://github.com/Yevrag35/NewRandomPassword-Core'
+        ProjectUri = 'https://github.com/Yevrag35/NewRandomPassword'
 
         # A URL to an icon representing this module.
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = 'Fixed security flaw'
+        ReleaseNotes = '2.0.0 runs on Windows PowerShell 5.1 and on PowerShell 7.6 or later. In PowerShell 7.5 or earlier, the import fails with an error that says so.'
 
     } # End of PSData hashtable
 
 } # End of PrivateData hashtable
 
-# HelpInfo URI of this module
-HelpInfoURI = 'https://github.com/Yevrag35/NewRandomPassword-Core/issues'
+# HelpInfo URI of this module. Set it only to a folder of updatable help: any other URL, such as an issues page, makes Update-Help fail.
+# HelpInfoURI = ''
 
 # Default prefix for commands exported from this module. Override the default prefix using Import-Module -Prefix.
 # DefaultCommandPrefix = ''
