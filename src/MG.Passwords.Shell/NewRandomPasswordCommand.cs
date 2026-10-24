@@ -83,14 +83,14 @@ public sealed class NewRandomPasswordCommand : PSCmdlet
 	/// </summary>
 	/// <remarks>
 	/// <para>
-	/// Each value is one of seven strings, which the parameter accepts regardless of case and uses as typed: the
-	/// lowercase letters except l and o, the uppercase letters except D, I, and O, the digits, the digits except 1, the
-	/// digits except 0 and 1, the symbols !@$#%&amp;, and the symbols !#%&amp;. A group that's listed twice supplies two
-	/// characters to every password that has room for them.
+	/// Each value is one of nine strings, which the parameter accepts regardless of case and uses as typed: the
+	/// lowercase letters, the lowercase letters except l and o, the uppercase letters, the uppercase letters except I
+	/// and O, the digits, the digits except 1, the digits except 0 and 1, the symbols !@$#%&amp;, and the symbols
+	/// !#%&amp;. A group that's listed twice supplies two characters to every password that has room for them.
 	/// </para>
 	/// <para>
-	/// Without the parameter, passwords are built from the lowercase letters, the uppercase letters, the digits except 0
-	/// and 1, and the symbols !@$#%&amp;. <see cref="OnlyUseExtraCharacters"/> leaves out these groups or the default ones.
+	/// Without the parameter, passwords are built from the lowercase letters, the uppercase letters, the digits, and
+	/// the symbols !@$#%&amp;. <see cref="OnlyUseExtraCharacters"/> leaves out these groups or the default ones.
 	/// </para>
 	/// </remarks>
 	/// <value>The groups of characters, or <see langword="null"/> when the parameter isn't given.</value>
@@ -98,7 +98,9 @@ public sealed class NewRandomPasswordCommand : PSCmdlet
 	[Alias("strings")]
 	[ValidateSet(
 		CharacterSets.Lowercase,
+		CharacterSets.LowercaseExceptLAndO,
 		CharacterSets.Uppercase,
+		CharacterSets.UppercaseExceptIAndO,
 		CharacterSets.Digits,
 		CharacterSets.DigitsExceptOne,
 		CharacterSets.DigitsExceptZeroAndOne,

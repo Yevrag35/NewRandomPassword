@@ -1,9 +1,10 @@
 BeforeAll {
 	& "$PSScriptRoot/Import-NewRandomPassword.ps1"
 
-	# The groups that passwords are built from without -InputStrings, as in 1.2.0: 61 characters in all.
+	# The groups that passwords are built from without -InputStrings: every letter and digit, and six symbols, 68
+	# characters in all.
 	$symbols = '!@$#%&'
-	$defaultGroups = 'abcdefghijkmnpqrstuvwxyz', 'ABCEFGHJKLMNPQRSTUVWXYZ', '23456789', $symbols
+	$defaultGroups = 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '1234567890', $symbols
 
 	# Returns the distinct characters of the strings as one string, in ordinal order.
 	function Get-DistinctCharacter {
@@ -68,10 +69,12 @@ Describe 'New-RandomPassword' {
 			}
 		}
 
-		# ValidateSet ignores case, but it passes each value on as typed (see 'InputStrings').
-		It 'accepts the seven strings of 1.2.0 for -InputStrings, ignoring case' {
+		# 1.2.0's seven strings, with ABCDEFGHJKLMNPQRSTUVWXYZ in place of 1.2.0's ABCEFGHJKLMNPQRSTUVWXYZ, which left
+		# out D by mistake, and the lowercase and the uppercase letters, each ahead of its set that leaves out
+		# look-alikes. ValidateSet ignores case, but it passes each value on as typed (see 'InputStrings').
+		It 'accepts the nine strings for -InputStrings, ignoring case' {
 			$validateSet = $command.Parameters['InputStrings'].Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
-			($validateSet.ValidValues -join ' ') | Should-BeString -CaseSensitive 'abcdefghijkmnpqrstuvwxyz ABCEFGHJKLMNPQRSTUVWXYZ 1234567890 234567890 23456789 !@$#%& !#%&'
+			($validateSet.ValidValues -join ' ') | Should-BeString -CaseSensitive 'abcdefghijklmnopqrstuvwxyz abcdefghijkmnpqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ ABCDEFGHJKLMNPQRSTUVWXYZ 1234567890 234567890 23456789 !@$#%& !#%&'
 			$validateSet.IgnoreCase | Should-BeTrue
 		}
 
@@ -163,8 +166,8 @@ Describe 'New-RandomPassword' {
 	}
 
 	Context 'Character groups' {
-		# With 6,000 characters drawn, the chance that one of the 61 never shows up is below 10^-38.
-		It 'draws from the 61 characters of the default groups, and only those' {
+		# With 6,000 characters drawn, the chance that one of the 68 never shows up is below 10^-35.
+		It 'draws from the 68 characters of the default groups, and only those' {
 			$passwords = New-RandomPassword -PasswordLength 30 -Count 200
 			Get-DistinctCharacter $passwords | Should-BeString -CaseSensitive (Get-DistinctCharacter $defaultGroups)
 		}
@@ -200,9 +203,9 @@ Describe 'New-RandomPassword' {
 			Get-DistinctCharacter $passwords | Should-BeString -CaseSensitive (Get-DistinctCharacter '23456789', '!#%&')
 		}
 
-		# ValidateSet ignores case but passes each value on as typed, as in 1.2.0, so the lowercase group typed in
-		# capitals gives capitals, D and I among them. With 1,500 characters drawn, the chance that one of the 24 never
-		# shows up is below 10^-26.
+		# ValidateSet ignores case but passes each value on as typed, as in 1.2.0, so the lowercase letters except l
+		# and o, typed in capitals, give the capitals except L and O, which neither uppercase string gives. With 1,500
+		# characters drawn, the chance that one of the 24 never shows up is below 10^-26.
 		It 'uses each value as typed' {
 			$passwords = New-RandomPassword -PasswordLength 30 -Count 50 -InputStrings 'ABCDEFGHIJKMNPQRSTUVWXYZ'
 			Get-DistinctCharacter $passwords | Should-BeString -CaseSensitive 'ABCDEFGHIJKMNPQRSTUVWXYZ'
@@ -229,7 +232,7 @@ Describe 'New-RandomPassword' {
 			)
 		}
 
-		# With 6,000 characters drawn, the chance that one of the default characters never shows up is below 10^-33.
+		# With 6,000 characters drawn, the chance that one of the default characters never shows up is below 10^-30.
 		It 'adds <Form> to the default groups' -ForEach $forms {
 			$passwords = New-RandomPassword -PasswordLength 30 -Count 200 -ExtraCharacters $Argument
 			Get-DistinctCharacter $passwords | Should-BeString -CaseSensitive (Get-DistinctCharacter ($defaultGroups + $Groups))
@@ -258,7 +261,7 @@ Describe 'New-RandomPassword' {
 
 		# Get-Content outputs one line in a PSObject, and several in an object[] of PSObjects. 1.2.0 refused one line and
 		# dropped several. As with the other forms, the chance that one of the default characters never shows up is below
-		# 10^-33.
+		# 10^-30.
 		It 'adds each line of Get-Content output to the default groups, from <Description>' -ForEach $fileContents {
 			$path = Join-Path $TestDrive 'groups.txt'
 			Set-Content -LiteralPath $path -Value $Lines
@@ -321,8 +324,8 @@ Describe 'New-RandomPassword' {
 			$err.CategoryInfo.Category | Should-Be 'InvalidArgument'
 		}
 
-		# Splatting passes a switch that's off as $false. With 6,000 characters drawn, the chance that one of the 61 default
-		# characters never shows up is below 10^-38.
+		# Splatting passes a switch that's off as $false. With 6,000 characters drawn, the chance that one of the 68 default
+		# characters never shows up is below 10^-35.
 		It 'draws from the default groups with -OnlyUseExtraCharacters:$false' {
 			$passwords = New-RandomPassword -PasswordLength 30 -Count 200 -OnlyUseExtraCharacters:$false
 			Get-DistinctCharacter $passwords | Should-BeString -CaseSensitive (Get-DistinctCharacter $defaultGroups)

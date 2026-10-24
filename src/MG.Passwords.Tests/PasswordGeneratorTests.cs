@@ -5,9 +5,9 @@ namespace MG.Passwords.Tests;
 [Collection(nameof(SharedArrayPoolCollection))]
 public sealed class PasswordGeneratorTests
 {
-	// The 61 characters of the default groups.
+	// The 68 characters of the default groups.
 	private const string DEFAULT_CHARACTERS = CharacterSets.Lowercase + CharacterSets.Uppercase
-		+ CharacterSets.DigitsExceptZeroAndOne + CharacterSets.Symbols;
+		+ CharacterSets.Digits + CharacterSets.Symbols;
 
 	// 1.2.0 sorted the first character in with the rest, in a random direction, so it came last in about half the
 	// passwords (#3). A shuffle that took in index 0 would move the first character in half the passwords of 2 characters,
@@ -140,7 +140,7 @@ public sealed class PasswordGeneratorTests
 	}
 
 	// Collapsing the repeated group into one would leave room for the fill, which would draw a letter instead of the
-	// second digit in 3 of every 4 passwords.
+	// second digit in about 3 of every 4 passwords.
 	[Fact]
 	public void Generate_GuaranteesTwoCharactersForAGroupListedTwice()
 	{

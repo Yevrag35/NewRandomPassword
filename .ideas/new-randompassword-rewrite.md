@@ -1,6 +1,6 @@
 # Plan: Rewrite New-RandomPassword
 
-> **Status:** Phases 1 to 4 done 2026-10-24. `MG.Passwords` builds the passwords, both shell projects ship `New-RandomPassword` and `rpas` with the 1.2.0 surface and the behavior that **What changes from 1.2.0** lists, a MAML help file and the README describe them, and engine and Pester tests pin that surface and behavior down, the two #3 fixes among them. What's left is under **Out of scope**.
+> **Status:** Phases 1 to 5 done 2026-10-24. `MG.Passwords` builds the passwords, both shell projects ship `New-RandomPassword` and `rpas` with the 1.2.0 surface, apart from the character sets that Phase 5 changed, and the behavior that **What changes from 1.2.0** lists, a MAML help file and the README describe them, and engine and Pester tests pin that surface and behavior down, the two #3 fixes among them. What's left is under **Out of scope**.
 
 ## Context
 
@@ -64,7 +64,7 @@ New-RandomPassword [[-Count] <int>] -MinimumLength <int> -MaximumLength <int> [-
 
 ### What changes from 1.2.0
 
-Measured in both editions unless the row says otherwise. Phase 2 summed this table up in the manifest's `ReleaseNotes`.
+Measured in both editions unless the row says otherwise. Phase 2 summed this table up in the manifest's `ReleaseNotes`, and Phase 5 added the lines for its rows.
 
 | Call | 1.2.0 | 2.0.0 |
 |---|---|---|
@@ -86,14 +86,25 @@ Measured in both editions unless the row says otherwise. Phase 2 summed this tab
 | `-PasswordLength 2000000000`, or a `-MaximumLength` that large | Passes validation, though no .NET string can hold that many characters. (Not measured.) | A binding error: the ranges top out at 1,048,576 (**Upper bound on lengths**). |
 | `-OnlyUseExtraCharacters` without `-ExtraCharacters` | Ignored. The default groups are used. | A terminating error, `OnlyUseExtraCharactersWithoutExtraCharacters` (**-OnlyUseExtraCharacters without -ExtraCharacters**). |
 | The type that `Get-Command` shows for `-ExtraCharacters` | `Object` | `String[]` |
+| `New-RandomPassword`, without `-InputStrings` | Draws from 61 characters: the letters except l, o, D, I, and O, the digits 2 to 9, and `!@$#%&`. | Draws from 68: every letter and digit, and `!@$#%&` (**Every letter and digit by default**). |
+| `-InputStrings 'ABCEFGHJKLMNPQRSTUVWXYZ'` | The uppercase letters except D, I, and O. | A binding error, whose message lists the nine strings that the parameter takes. `ABCDEFGHJKLMNPQRSTUVWXYZ`, the uppercase letters except I and O, takes its place. |
+| `-InputStrings 'abcdefghijklmnopqrstuvwxyz'`, `'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`, or `'ABCDEFGHJKLMNPQRSTUVWXYZ'` | A binding error. | The string's letters. |
 
 ## Resolved design questions
 
 ### 2.0.0 keeps the 1.2.0 surface
 
-Every name, alias, position, parameter set, mandatory flag, default, `ValidateRange` minimum, and `ValidateSet` value in the 1.2.0 table stays, so a script written for 1.2.0 runs unchanged. Nothing forces a break. The major version is already earned by dropping every PowerShell 6 and 7 release before 7.6: 1.2.0's manifest lists the Core edition with `PowerShellVersion = '5.1'`, so it lets all of them import the module, and 2.0.0's `.psm1` refuses them. And the module already treats 1.2.0 scripts as a contract, as the `rpas` test in `Module.Tests.ps1` shows. What changes is behavior that no script can sensibly depend on: crashes, silently dropped input, and the two #3 bugs, as listed above. `Get-Command` shows two changes: the type of `-ExtraCharacters` (see below), and the length maxima, which **Upper bound on lengths** lowers to 1,048,576. (Phase 2 found a third, which no script plausibly reads: `Parameters` lists `-PasswordLength` and `-Count` first, in declaration order, where 1.2.0, which declared them as fields, listed them after the properties. `-Syntax` shows the same order in both.)
+~~Every name, alias, position, parameter set, mandatory flag, default, `ValidateRange` minimum, and `ValidateSet` value in the 1.2.0 table stays, so a script written for 1.2.0 runs unchanged.~~ (Phase 5 changed the default of `-InputStrings` and one of its `ValidateSet` values, as **Every letter and digit by default** explains. Everything else in the 1.2.0 table stays, so a script written for 1.2.0 runs unchanged unless it passes 1.2.0's uppercase string.) Nothing forces a break. The major version is already earned by dropping every PowerShell 6 and 7 release before 7.6: 1.2.0's manifest lists the Core edition with `PowerShellVersion = '5.1'`, so it lets all of them import the module, and 2.0.0's `.psm1` refuses them. And the module already treats 1.2.0 scripts as a contract, as the `rpas` test in `Module.Tests.ps1` shows. Apart from the character sets, what changes is behavior that no script can sensibly depend on: crashes, silently dropped input, and the two #3 bugs, as listed above. Besides the `ValidateSet` values that Phase 5 changed, `Get-Command` shows two changes: the type of `-ExtraCharacters` (see below), and the length maxima, which **Upper bound on lengths** lowers to 1,048,576. (Phase 2 found a third, which no script plausibly reads: `Parameters` lists `-PasswordLength` and `-Count` first, in declaration order, where 1.2.0, which declared them as fields, listed them after the properties. `-Syntax` shows the same order in both.)
 
 1.2.0's `ConfirmImpact = ConfirmImpact.None` and `[CmdletBinding(PositionalBinding = false)]` aren't carried over. The cmdlet doesn't support `ShouldProcess`, so its confirm impact means nothing, and the rewrite gives a `Position` only to `-PasswordLength` and `-Count`, which Phase 2 checked against the table.
+
+### Every letter and digit by default
+
+Decided on 2026-10-24, after Phase 4 shipped. 1.2.0's default groups left out l, o, I, O, 0, and 1, which are easy to mistake for others, and D, which isn't. None of that was intended: the defaults were always meant to hold every letter and digit. So the default groups became `abcdefghijklmnopqrstuvwxyz`, `ABCDEFGHIJKLMNOPQRSTUVWXYZ`, `1234567890`, and 1.2.0's `!@$#%&`, 68 characters in all, and a caller who wants passwords without look-alikes asks for them with `-InputStrings`.
+
+The 1.2.0 strings that leave out look-alikes stay as `-InputStrings` values, except one, which is fixed instead of kept: `ABCEFGHJKLMNPQRSTUVWXYZ` left out D by mistake too, so `ABCDEFGHJKLMNPQRSTUVWXYZ`, the uppercase letters except I and O, takes its place. A script that passes 1.2.0's string fails at binding, with `ValidateSet`'s own error, which lists the strings that the parameter takes. That's the one break with 1.2.0's surface, and a deliberate one: keeping 1.2.0's string beside the new one, or mapping it to the new one, would have kept a string that never should have been written that way. The two alphabets join the values, so that each default group is still a value that `-InputStrings` can name, as in 1.2.0.
+
+The `[ValidateSet]` lists each full set ahead of the sets that leave some of its characters out: the lowercase letters, then the uppercase letters, the digits, and the symbols. `Get-Command` and the binding error show the strings in that order. Tab completion doesn't: it sorts the strings that match, and for `abc` or `ABCD` it offers both alphabets, which differ only in case. Neither edition minds two values like that in one `ValidateSet` (measured on 2026-10-24 in PowerShell 7.6.8 and Windows PowerShell 5.1.26100.9711).
 
 ### The engine builds passwords, and the shell is only the cmdlet
 
@@ -170,15 +181,17 @@ namespace MG.Passwords;
 
 internal static class CharacterSets
 {
-	internal const string Lowercase = "abcdefghijkmnpqrstuvwxyz";
-	internal const string Uppercase = "ABCEFGHJKLMNPQRSTUVWXYZ";
+	internal const string Lowercase = "abcdefghijklmnopqrstuvwxyz";
+	internal const string LowercaseExceptLAndO = "abcdefghijkmnpqrstuvwxyz";
+	internal const string Uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	internal const string UppercaseExceptIAndO = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 	internal const string Digits = "1234567890";
 	internal const string DigitsExceptOne = "234567890";
 	internal const string DigitsExceptZeroAndOne = "23456789";
 	internal const string Symbols = "!@$#%&";
 	internal const string SymbolsExceptAtAndDollar = "!#%&";
 
-	// The four groups that 1.2.0 uses without -InputStrings.
+	// Lowercase, Uppercase, Digits, and Symbols: the groups without -InputStrings.
 	internal static IReadOnlyList<string> Default { get; }
 }
 
@@ -205,7 +218,7 @@ public sealed class NewRandomPasswordCommand : PSCmdlet
 
 Shipped: `src/MG.Passwords/CharacterSets.cs` and `src/MG.Passwords/PasswordGenerator.cs`, both `internal`, without a cmdlet yet. Every type and member has XML documentation that follows the `csharp-xml-docs` skill, as `SecureRandom`'s members do. (#4 committed `SecureRandom.cs` and `SecureRandomTests.cs` before Phase 1 started.)
 
-- `CharacterSets` holds the seven 1.2.0 strings as `const` fields, in 1.2.0's `ValidateSet` order, so that the cmdlet's `[ValidateSet]` can name them, and `Default`, the four groups that 1.2.0 uses without `-InputStrings`. `Default` is a collection expression typed `IReadOnlyList<string>`, so it's the compiler's read-only list, not an array that a caller could cast back and change.
+- ~~`CharacterSets` holds the seven 1.2.0 strings as `const` fields, in 1.2.0's `ValidateSet` order, so that the cmdlet's `[ValidateSet]` can name them, and `Default`, the four groups that 1.2.0 uses without `-InputStrings`.~~ (Phase 5 made them the nine strings and the default groups of **Every letter and digit by default**, still `const` fields that the cmdlet's `[ValidateSet]` names.) `Default` is a collection expression typed `IReadOnlyList<string>`, so it's the compiler's read-only list, not an array that a caller could cast back and change.
 - `PasswordGenerator`'s constructor normalizes the groups as **Groups are normalized once** says: it removes repeated characters within each group, ordinally, builds the fill from the distinct characters of all the groups, and keeps repeated groups. It throws `ArgumentException` for no groups, an empty group, or a surrogate in a group or as the first character, as planned, and in two cases the plan didn't name: `ArgumentNullException` for a null list, and `ArgumentException` for a null group. The instance doesn't change after that, so one serves a whole `-Count` batch.
 - `Generate(int length)` builds one password as **How a password is built** says, and throws `ArgumentOutOfRangeException` for a length below 1.
 - `GetLength(int minimumLength, int maximumLength)` draws `SecureRandom.GetInt32(minimumLength - 1, maximumLength) + 1`, which never computes `maximumLength + 1`, so a range that ends at `int.MaxValue` can't overflow, and as a method of its own, it can be tested at that boundary without building a 2 GB string. It throws `ArgumentOutOfRangeException` for a minimum below 1 or above the maximum. `Generate(int minimumLength, int maximumLength)` calls it and then `Generate(int length)`.
@@ -272,7 +285,7 @@ Pester tests, in `tests/New-RandomPassword.Tests.ps1`, with a `Context` per para
 - 'FirstCharacter': every password in a batch of 400 starts with it (#3); `-PasswordLength 1` gives it alone; `-FirstCharacter 5` starts each password with the digit 5; and `-FirstCharacter 65`, a control character, and half of a surrogate pair fail at binding.
 - 'MinimumLength and MaximumLength': one batch holds more than one length (#3); over 300 passwords, every length in a range of three shows up and none outside it; equal bounds give that length; and a minimum above the maximum fails with `MinimumLengthExceedsMaximumLength`, in the `InvalidArgument` category.
 - 'Positional binding': `New-RandomPassword 12 3`, and `-MinimumLength 4 -MaximumLength 6 3`.
-- 'Character groups': the default output uses the 61 default characters, all of them and no other; every password of 4, 5, or 8 characters has a character from each default group; and some passwords of 2 characters, and of 3, hold a symbol.
+- 'Character groups': the default output uses the default characters, all of them and no other; every password of 4, 5, or 8 characters has a character from each default group; and some passwords of 2 characters, and of 3, hold a symbol.
 - 'ExtraCharacters': a string, a `string[]`, a `char[]`, a `char`, and `Get-Content` output of one line and of two, with and without `-OnlyUseExtraCharacters`, and a `char[]` kept together as one group; the error for each refused form, a control character among them; and a non-ASCII character, written as `[char]0x00E9` so that the file stays ASCII.
 - 'OnlyUseExtraCharacters': with `-ExtraCharacters`, the passwords hold only its characters, whether or not `-InputStrings` is given; without it, the switch fails with `OnlyUseExtraCharactersWithoutExtraCharacters`, with `-InputStrings` too; and `-OnlyUseExtraCharacters:$false` without `-ExtraCharacters` generates from the default groups.
 - 'Help': `Get-Help MG.Passwords.Shell\New-RandomPassword -Full` returns a `MamlCommandHelpInfo`, so the test fails when the build doesn't copy the file, and its syntax blocks and parameters match the cmdlet's, because Get-Help shows them as the file writes them: each syntax block lists its set's parameters in the order of the set's syntax, with their required flags, positions, and types, and no value for the switch, and the parameters are the cmdlet's, with their required flags, positions, types, aliases, and pipeline input.
@@ -282,9 +295,9 @@ Each #3 test also ran once against 1.2.0, from a scratch copy of the test file t
 
 Phase 4 also added tests that the plan didn't list:
 
-- An 'InputStrings' Context, because no listed test showed that `-InputStrings` takes the place of the default groups. It does; each value is used as typed, so the lowercase group typed in capitals gives capitals, D and I among them; and a group listed twice supplies two characters.
+- An 'InputStrings' Context, because no listed test showed that `-InputStrings` takes the place of the default groups. It does; each value is used as typed, so the lowercase letters except l and o, typed in capitals, give the capitals except L and O; and a group listed twice supplies two characters.
 - 'Character groups' checks `NoCharacters`, in the `InvalidArgument` category, for `-InputStrings @()` and for `-ExtraCharacters @()` with `-OnlyUseExtraCharacters`, the row of **What changes from 1.2.0** that no listed test covered.
-- 'Parameters' checks the default of one password of 8 characters, the seven `ValidateSet` values of `-InputStrings` in order and its `IgnoreCase`, the output type, and that no parameter takes pipeline input.
+- 'Parameters' checks the default of one password of 8 characters, the `ValidateSet` values of `-InputStrings` in order and its `IgnoreCase`, the output type, and that no parameter takes pipeline input.
 - `CharacterGroupsTransformationAttributeTests` checks that the transformation disposes of the enumerator of a collection that it refuses, which Phase 2 did for enumerators that hold a resource, such as that of `File.ReadLines`. It, the validation tests, and the generator tests also refuse a surrogate pair, an emoji, beside the lone surrogates.
 
 Four details differ from the plan:
@@ -298,19 +311,29 @@ Two more facts set how the tests are written. A theory gets a lone surrogate as 
 
 **Outcome:** a later change that drops an alias, moves a position, ships a stale help file, or brings back either #3 bug or one of 1.2.0's crashes fails a test in both editions.
 
+### Phase 5 — Every letter and digit by default. ✅ Done — 2026-10-24.
+
+Shipped: the character sets of **Every letter and digit by default**, in `src/MG.Passwords/CharacterSets.cs` and the `[ValidateSet]` in `src/MG.Passwords.Shell/NewRandomPasswordCommand.cs`, with the help, the README, the release notes, and the tests to match. The phase wasn't planned: it did the work of the **Out of scope** row that waited on a decision to change the 1.2.0 character sets.
+
+- `CharacterSets` holds nine strings, in the `ValidateSet` order. `Lowercase` and `Uppercase` became every letter of their case, and `LowercaseExceptLAndO` took 1.2.0's lowercase string. `UppercaseExceptIAndO`, `ABCDEFGHJKLMNPQRSTUVWXYZ`, took the place of 1.2.0's `ABCEFGHJKLMNPQRSTUVWXYZ`, and its remarks say why. `Digits`, `DigitsExceptOne`, `DigitsExceptZeroAndOne`, `Symbols`, and `SymbolsExceptAtAndDollar` kept their strings. `Default` is `Lowercase`, `Uppercase`, `Digits`, and `Symbols`, 68 characters.
+- The cmdlet's `[ValidateSet]` names the nine constants, and its docs for `-InputStrings` list the strings and the new default groups.
+- The help describes the new default groups and the nine strings. A new Example 5 builds a password from the strings that leave out look-alikes, so the examples of `-ExtraCharacters` and `-OnlyUseExtraCharacters` became Examples 6 and 7, and the examples that draw from the default groups show output that the Debug build gave again. The README's character groups and its example of `-InputStrings` follow the new sets, with a second example for the strings that leave out look-alikes. Its changes from 1.2.0 gained two lines, which the manifest's `ReleaseNotes` repeats.
+- The tests that name the default groups or the `-InputStrings` strings follow the new sets: `$defaultGroups` and the 'Parameters' test of the `ValidateSet` values in `tests/New-RandomPassword.Tests.ps1`, and `DEFAULT_CHARACTERS` in `PasswordGeneratorTests`. The odds in the comments of the tests that draw from the default groups were worked out again for 68 characters. No test was added: the 'Parameters' test pins each string, and 'Character groups' pins the default characters, so a change to either fails one of them.
+
+**Outcome:** without `-InputStrings`, passwords draw from every letter and digit and six symbols, and a caller who wants passwords without look-alikes asks for them with `-InputStrings`, D included in the uppercase letters.
+
 ### Out of scope
 
 | Item | Blocked on |
 |---|---|
 | Release staging: copying the Release DLLs into `NewRandomPassword/Core` and `NewRandomPassword/Desk`, and publishing | A plan of its own. |
 | New features, such as `SecureString` output, named character sets, excluding characters, or pipeline input | A decision to grow the surface past 1.2.0. |
-| Changing the 1.2.0 character sets, such as putting D back | A decision to change the 1.2.0 surface: `-InputStrings` validates against these exact strings. |
 | Characters outside the Basic Multilingual Plane, with a surrogate pair counted as one character | A decision to count lengths in code points instead of UTF-16 code units. |
 | Updatable help | A hosted folder of updatable help for `HelpInfoURI`. |
 
 ## New files
 
-- `src/MG.Passwords/CharacterSets.cs` (Phase 1): the 1.2.0 strings and the default groups.
+- `src/MG.Passwords/CharacterSets.cs` (Phase 1, with Phase 5's character sets): the `-InputStrings` strings and the default groups.
 - `src/MG.Passwords/PasswordGenerator.cs` (Phase 1): normalized groups, length draws, and building passwords.
 - `src/MG.Passwords/CharacterGroupsTransformationAttribute.cs` (Phase 2): turns `-ExtraCharacters` input into groups.
 - `src/MG.Passwords/FirstCharacterTransformationAttribute.cs` (Phase 2): reads a bare number given to `-FirstCharacter` as its digits.
@@ -325,9 +348,9 @@ Two more facts set how the tests are written. A theory gets a lone surrogate as 
 ## Modified files
 
 - `src/MG.Passwords/SecureRandom.cs`: clears its draw buffer in the `netstandard2.0` build (Phase 1, not planned).
-- `NewRandomPassword/NewRandomPassword.psd1`: `ReleaseNotes` (Phase 2, with one line reworded in Phase 3), and the help file in `FileList` (Phase 3).
+- `NewRandomPassword/NewRandomPassword.psd1`: `ReleaseNotes` (Phase 2, with one line reworded in Phase 3 and the character sets added in Phase 5), and the help file in `FileList` (Phase 3).
 - `src/MG.Passwords.Shell/MG.Passwords.Shell.csproj` and `src/MG.Passwords.Shell-NETFramework/MG.Passwords.Shell-NETFramework.csproj`: copy the help file into `en-US\` (Phase 3).
-- `README.md`: 2.0.0 (Phase 3).
+- `README.md`: 2.0.0 (Phase 3), and the character sets (Phase 5).
 - `tests/Module.Tests.ps1`: the alias through the manifest (Phase 4).
 - `src/MG.Passwords.Tests/SecureRandomTests.cs`: calls the shared `Distribution.AssertEquallyLikely` (Phase 4, not planned).
 
@@ -350,6 +373,7 @@ Every run uses stable releases. Its results, with the PowerShell versions and th
 - **Phase 2:** `tests/Invoke-Tests.ps1` passes in each edition, and `dotnet test` still passes. A smoke script in each edition, with module auto-loading off and the build imported by its absolute path, runs 1.2.0's four examples, `New-RandomPassword -PasswordLength 12`, `New-RandomPassword -MinimumLength 6 -MaximumLength 67`, `New-RandomPassword 15 -Count 5`, and `rpas 68 3 -FirstCharacter %`, and every row of **What changes from 1.2.0**, and compares `Get-Command New-RandomPassword -Syntax` and the parameter metadata with the 1.2.0 table, expecting only this plan's differences. A staged copy of the manifest layout, built the way `Module.Tests.ps1` builds it, imports in each edition, and `rpas` runs the build's cmdlet.
 - **Phase 3:** in each edition, `Get-Help MG.Passwords.Shell\New-RandomPassword -Full` on the Debug build, imported by its path, is a `MamlCommandHelpInfo` with every parameter and example. The same holds for `Get-Help NewRandomPassword\New-RandomPassword -Full` through a staged manifest layout with the help file beside the manifest, and `Update-Help -Module NewRandomPassword` still says that the module has no updatable help.
 - **Phase 4:** the Pester tests pass in both editions against the Debug and the Release builds, and `dotnet test` passes on both targets. Each #3 test fails against 1.2.0.
+- **Phase 5:** the Pester tests pass in both editions, and `dotnet test` passes on both targets. A smoke script in each edition, with the build imported by its absolute path, checks that the default output draws from 68 characters, that each new string gives its own letters, that `-InputStrings 'ABCEFGHJKLMNPQRSTUVWXYZ'` fails at binding with an error that lists the nine strings, and that tab completion of `-InputStrings` offers them. The same calls against `accaf2e`'s DLLs give the 1.2.0 column of Phase 5's rows in **What changes from 1.2.0**.
 
 ## Open questions
 

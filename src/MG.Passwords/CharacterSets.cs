@@ -6,25 +6,40 @@ namespace MG.Passwords;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The strings are the values that 1.2.0's <c>-InputStrings</c> accepts, in the order of its
+/// The strings are the values that <c>-InputStrings</c> accepts, in the order of its
 /// <see cref="ValidateSetAttribute"/>, and they're constants so that the cmdlet's attribute can name them. The
 /// parameter accepts only these strings, ignoring case, so a change to one breaks every script that passes it.
 /// </para>
 /// <para>
-/// The letters leave out l, o, I, and O, which look like 1 and 0, and also D.
+/// <see cref="Default"/> holds every letter and digit. <see cref="LowercaseExceptLAndO"/>,
+/// <see cref="UppercaseExceptIAndO"/>, <see cref="DigitsExceptOne"/>, and <see cref="DigitsExceptZeroAndOne"/> leave
+/// out characters that are easy to mistake for others, such as l and 1, or O and 0, for a caller to choose instead.
 /// </para>
 /// </remarks>
 internal static class CharacterSets
 {
 	/// <summary>
-	/// The lowercase letters except l and o.
+	/// The lowercase letters.
 	/// </summary>
-	internal const string Lowercase = "abcdefghijkmnpqrstuvwxyz";
+	internal const string Lowercase = "abcdefghijklmnopqrstuvwxyz";
 
 	/// <summary>
-	/// The uppercase letters except D, I, and O.
+	/// <see cref="Lowercase"/> without l and o.
 	/// </summary>
-	internal const string Uppercase = "ABCEFGHJKLMNPQRSTUVWXYZ";
+	internal const string LowercaseExceptLAndO = "abcdefghijkmnpqrstuvwxyz";
+
+	/// <summary>
+	/// The uppercase letters.
+	/// </summary>
+	internal const string Uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+	/// <summary>
+	/// <see cref="Uppercase"/> without I and O.
+	/// </summary>
+	/// <remarks>
+	/// The string takes the place of 1.2.0's <c>ABCEFGHJKLMNPQRSTUVWXYZ</c>, which left out D too, by mistake.
+	/// </remarks>
+	internal const string UppercaseExceptIAndO = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
 	/// <summary>
 	/// The digits 1 to 9, and then 0.
@@ -55,8 +70,8 @@ internal static class CharacterSets
 	/// Gets the groups that passwords are built from when <c>-InputStrings</c> isn't given.
 	/// </summary>
 	/// <value>
-	/// A read-only list of <see cref="Lowercase"/>, <see cref="Uppercase"/>, <see cref="DigitsExceptZeroAndOne"/>, and
-	/// <see cref="Symbols"/>, which hold 61 characters in all.
+	/// A read-only list of <see cref="Lowercase"/>, <see cref="Uppercase"/>, <see cref="Digits"/>, and
+	/// <see cref="Symbols"/>, which hold 68 characters in all.
 	/// </value>
-	internal static IReadOnlyList<string> Default { get; } = [Lowercase, Uppercase, DigitsExceptZeroAndOne, Symbols];
+	internal static IReadOnlyList<string> Default { get; } = [Lowercase, Uppercase, Digits, Symbols];
 }

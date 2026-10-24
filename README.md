@@ -32,33 +32,41 @@ Install-Module -Name NewRandomPassword
 
 ## Character groups
 
-Without `-InputStrings`, passwords are built from four groups, 61 characters in all, which leave out characters that are easy to mistake for others, such as `l` and `1`, or `O` and `0`:
+Without `-InputStrings`, passwords are built from four groups, 68 characters in all:
 
 | Group | Characters |
 |---|---|
-| The lowercase letters except l and o | `abcdefghijkmnpqrstuvwxyz` |
-| The uppercase letters except D, I, and O | `ABCEFGHJKLMNPQRSTUVWXYZ` |
-| The digits except 0 and 1 | `23456789` |
+| The lowercase letters | `abcdefghijklmnopqrstuvwxyz` |
+| The uppercase letters | `ABCDEFGHIJKLMNOPQRSTUVWXYZ` |
+| The digits | `1234567890` |
 | Six symbols | `!@$#%&` |
 
 A password holds a character from each group, and characters drawn from all the groups fill the rest of it. A password with fewer characters than there are groups holds characters from a random choice of the groups instead. Then the characters are shuffled, all but `-FirstCharacter`, which always comes first. It counts toward the length, but it doesn't take the place of any group's character.
 
 Three parameters change the groups:
 
-- **`-InputStrings`** replaces the default groups. Each value has to be one of seven strings: the four above, `1234567890` (all the digits), `234567890` (the digits except 1), or `!#%&` (the symbols except @ and $). The parameter accepts each one regardless of case and uses it as you typed it, and a group that's listed twice supplies two characters to every password that has room for them.
+- **`-InputStrings`** replaces the default groups. Each value has to be one of nine strings: the four above, `abcdefghijkmnpqrstuvwxyz` (the lowercase letters except l and o), `ABCDEFGHJKLMNPQRSTUVWXYZ` (the uppercase letters except I and O), `234567890` (the digits except 1), `23456789` (the digits except 0 and 1), or `!#%&` (the symbols except @ and $). The parameter accepts each one regardless of case and uses it as you typed it, and a group that's listed twice supplies two characters to every password that has room for them.
 - **`-ExtraCharacters`** adds groups of your own. A string is one group, and so is a `[char]` or a `[char[]]`. Each element of a collection is a group of its own, such as each line that `Get-Content` outputs. A group can't be empty, and it can't hold a control character, such as a tab, or a character that takes a surrogate pair, such as an emoji.
 - **`-OnlyUseExtraCharacters`** builds passwords from the `-ExtraCharacters` groups alone, without the default groups or the `-InputStrings` groups. It requires `-ExtraCharacters`.
 
-This command builds a password of 16 characters from the lowercase letters, the digits 2 to 9, and the characters `-` and `_`, with at least one of each:
+This command builds a password of 16 characters from the lowercase letters, the digits, and the characters `-` and `_`, with at least one of each:
 
 ```powershell
-New-RandomPassword 16 -InputStrings 'abcdefghijkmnpqrstuvwxyz', '23456789' -ExtraCharacters '-_'
+New-RandomPassword 16 -InputStrings 'abcdefghijklmnopqrstuvwxyz', '1234567890' -ExtraCharacters '-_'
+```
+
+And this one leaves out characters that are easy to mistake for others, such as `l` and `1`, or `O` and `0`, and still holds a lowercase letter, an uppercase letter, a digit, and a symbol:
+
+```powershell
+New-RandomPassword 16 -InputStrings 'abcdefghijkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789', '!@$#%&'
 ```
 
 ## Changes from 1.2.0
 
-2.0.0 keeps every parameter, alias, position, parameter set, and default of 1.2.0. It no longer imports in PowerShell 6 or in PowerShell 7 before 7.6, which 1.2.0's manifest allowed. What changes:
+2.0.0 keeps every parameter, alias, position, and parameter set of 1.2.0, and every default but the character groups. It no longer imports in PowerShell 6 or in PowerShell 7 before 7.6, which 1.2.0's manifest allowed. What changes:
 
+- Passwords are built from every letter and digit by default, and the same six symbols, 68 characters in all. 1.2.0 left out `l`, `o`, `D`, `I`, `O`, `0`, and `1`. To leave out characters that are easy to mistake for others, pass `-InputStrings` the groups that leave them out, as under [Character groups](#character-groups).
+- `-InputStrings` takes `ABCDEFGHJKLMNPQRSTUVWXYZ`, the uppercase letters except I and O, in place of 1.2.0's `ABCEFGHJKLMNPQRSTUVWXYZ`, which left out D by mistake, so a script that passes 1.2.0's string fails when PowerShell binds it. It also takes every lowercase letter, `abcdefghijklmnopqrstuvwxyz`, and every uppercase letter, `ABCDEFGHIJKLMNOPQRSTUVWXYZ`.
 - `-FirstCharacter` always comes first. 1.2.0 put it last in about half the passwords.
 - With `-MinimumLength` and `-MaximumLength`, each password gets a random length of its own. 1.2.0 gave every password of a call the same length.
 - A password with fewer characters than there are groups holds characters from a random choice of the groups. 1.2.0 always took the first groups, so a password of 2 or 3 characters never held a symbol.
