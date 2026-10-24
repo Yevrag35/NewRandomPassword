@@ -15,13 +15,13 @@ References:
 
 ## Audit
 
-Done on 2026-10-23 against `debae4c` plus the uncommitted `SecureRandom.cs` and `SecureRandomTests.cs`, with .NET SDK 10.0.402, PowerShell 7.6.8, and Windows PowerShell 5.1.26100.9711.
+Done on 2026-10-23 against `debae4c` plus `SecureRandom.cs` and `SecureRandomTests.cs`, which weren't committed yet, with .NET SDK 10.0.402, PowerShell 7.6.8, and Windows PowerShell 5.1.26100.9711. #4 then landed all of it on `dev` as one squashed commit, `4fe521f`, so `debae4c` isn't in `dev`'s history. GitHub keeps it under `refs/pull/4/head`.
 
 ### What exists and what the rewrite needs
 
 | Piece | State | Needed |
 |---|---|---|
-| Uniform secure random integers and shuffling | `src/MG.Passwords/SecureRandom.cs`, documented, with 17 tests per target in `src/MG.Passwords.Tests/SecureRandomTests.cs`. Neither file is committed. | Commit them (Phase 1) |
+| Uniform secure random integers and shuffling | `src/MG.Passwords/SecureRandom.cs`, documented, with 17 tests per target in `src/MG.Passwords.Tests/SecureRandomTests.cs`. ~~Neither file is committed.~~ (#4 committed both.) | ~~Commit them (Phase 1)~~ Nothing |
 | Character sets | None | `CharacterSets` (Phase 1) |
 | Password generation | None | `PasswordGenerator` (Phase 1) |
 | The cmdlet | None. Both shell projects build an empty `MG.Passwords.Shell.dll`. | `NewRandomPasswordCommand` (Phase 2) |
@@ -151,13 +151,13 @@ Nothing goes through `SecureString`, a BSTR, or an `Encoding`. The archived `Pas
 
 ### Tests come last
 
-Phases 1 to 3 are verified by hand (see Verification) and keep the existing suites passing. Phase 4 writes the new tests once the surface has stopped moving. The two #3 bugs are tested there again, as `CLAUDE.md` requires, and each of those tests is run once against 1.2.0 to show that it fails there. `SecureRandomTests.cs` lands in Phase 1 with `SecureRandom` because it isn't new work for this plan: it was written with `SecureRandom`, whose surface this plan doesn't change.
+Phases 1 to 3 are verified by hand (see Verification) and keep the existing suites passing. Phase 4 writes the new tests once the surface has stopped moving. The two #3 bugs are tested there again, as `CLAUDE.md` requires, and each of those tests is run once against 1.2.0 to show that it fails there. `SecureRandomTests.cs` ~~lands in Phase 1~~ landed in #4, before Phase 1, with `SecureRandom` because it isn't new work for this plan: it was written with `SecureRandom`, whose surface this plan doesn't change.
 
 ## Architecture sketch
 
 Files:
 
-- `src/MG.Passwords/SecureRandom.cs`: exists, uncommitted.
+- `src/MG.Passwords/SecureRandom.cs`: exists.
 - `src/MG.Passwords/CharacterSets.cs`: Phase 1.
 - `src/MG.Passwords/PasswordGenerator.cs`: Phase 1.
 - `src/MG.Passwords/CharacterGroupsTransformationAttribute.cs`: Phase 2.
@@ -204,7 +204,7 @@ public sealed class NewRandomPasswordCommand : PSCmdlet
 
 ### Phase 1 — Generation engine
 
-Phase 1 adds the generator to `MG.Passwords`, without a cmdlet yet, and commits `SecureRandom.cs` and `SecureRandomTests.cs` with it. Everything it builds is settled above, so it can start now.
+Phase 1 adds the generator to `MG.Passwords`, without a cmdlet yet~~, and commits `SecureRandom.cs` and `SecureRandomTests.cs` with it~~. (#4 committed both before Phase 1 started.) Everything it builds is settled above, so it can start now.
 
 - `CharacterSets` holds the seven 1.2.0 strings as `const` fields, in 1.2.0's `ValidateSet` order, so that the cmdlet's `[ValidateSet]` can name them, and `Default`, the four groups that 1.2.0 uses without `-InputStrings`.
 - `PasswordGenerator`'s constructor normalizes the groups and checks them and the first character, as **Groups are normalized once** says, and throws `ArgumentException` for no groups, an empty group, or a surrogate. The instance doesn't change after that, so one serves a whole `-Count` batch.
@@ -284,7 +284,7 @@ Each #3 test also runs once against 1.2.0, from a scratch copy of the test file 
 - `src/MG.Passwords.Tests/PasswordGeneratorTests.cs`, a test class per transformation attribute, and `ValidatePasswordCharactersAttributeTests.cs` (Phase 4).
 - `tests/New-RandomPassword.Tests.ps1` (Phase 4).
 
-`SecureRandom.cs` and `SecureRandomTests.cs` exist but aren't committed. They land in Phase 1.
+~~`SecureRandom.cs` and `SecureRandomTests.cs` exist but aren't committed. They land in Phase 1.~~ (#4 committed both before Phase 1 started.)
 
 ## Modified files
 
