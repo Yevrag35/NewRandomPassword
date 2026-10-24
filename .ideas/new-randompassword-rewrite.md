@@ -1,6 +1,6 @@
 # Plan: Rewrite New-RandomPassword
 
-> **Status:** Phases 1 and 2 done 2026-10-24. `MG.Passwords` builds the passwords, and both shell projects ship `New-RandomPassword` and `rpas` with the 1.2.0 surface and the behavior that **What changes from 1.2.0** lists. Phase 3 (help and README) and Phase 4 (tests) remain.
+> **Status:** Phases 1 to 3 done 2026-10-24. `MG.Passwords` builds the passwords, both shell projects ship `New-RandomPassword` and `rpas` with the 1.2.0 surface and the behavior that **What changes from 1.2.0** lists, and a MAML help file and the README describe them. Phase 4 (tests) remains.
 
 ## Context
 
@@ -12,7 +12,7 @@ References:
 
 - `CLAUDE.md`'s reference points. 1.2.0 on the Gallery, built from `accaf2e`, is the compatibility baseline. #3 fixed two generation bugs in the legacy source after 1.2.0 shipped, and a rewrite has to be tested for both again. The `archive/DifferentApproach` tag is an abandoned 2020 rewrite whose `PasswordHolder` must not be copied.
 - `NRP-DotNet/NewRandomPassword.cs` at #3 (`8e90f21`), which only git history keeps: the legacy cmdlet with the #3 fixes. The Gallery build predates them.
-- The repo's `nrp-pwsh-internals` skill, for measured engine behavior. The binding facts this plan relies on were measured for it and added to its `references/binding.md`, and the alias-export fact to its `references/assembly-loading.md`.
+- The repo's `nrp-pwsh-internals` skill, for measured engine behavior. The binding facts this plan relies on were measured for it and added to its `references/binding.md`, and the alias-export fact to its `references/assembly-loading.md`. Phase 3 added to its `references/help.md` how Get-Help prints a line break inside a paragraph and a long line of code, and the type names of the help objects.
 - The repo's `nrp-testing` skill, for how both suites run and where a test goes.
 
 ## Audit
@@ -29,8 +29,8 @@ Done on 2026-10-23 on #4's branch, before `SecureRandom.cs` and `SecureRandomTes
 | The cmdlet | None. Both shell projects built an empty `MG.Passwords.Shell.dll`. | `NewRandomPasswordCommand`, which Phase 2 added in `src/MG.Passwords.Shell/NewRandomPasswordCommand.cs` |
 | Converting and checking `-ExtraCharacters` and `-FirstCharacter` input | None | Two transformation attributes and a validation attribute, which Phase 2 added in `src/MG.Passwords/` |
 | Loading dependencies in Windows PowerShell 5.1 | `ModuleInitializer` in the `net48` shell | Nothing, as long as the engine adds no package. Phases 1 and 2 added none. |
-| Manifest and `.psm1` | Version 2.0.0. Exported `New-RandomPassword` and `rpas`, and loaded the build for each edition. | Release notes, which Phase 2 added, and the help file in `FileList` (Phase 3) |
-| Help | None. 1.2.0 had none either. | A MAML help file (Phase 3) |
+| Manifest and `.psm1` | Version 2.0.0. Exported `New-RandomPassword` and `rpas`, and loaded the build for each edition. | Release notes, which Phase 2 added, and the help file in `FileList`, which Phase 3 added |
+| Help | None. 1.2.0 had none either. | A MAML help file, which Phase 3 added in `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml` |
 | Tests | `Module.Tests.ps1`, the runspace fixture, and `SecureRandomTests` | Cmdlet and engine tests (Phase 4) |
 
 The audit also measured, with a throwaway module in both editions, that a binary cmdlet's `[Alias]` alias reaches the caller through a manifest whose `RootModule` is a `.psm1` that imports the DLL. 1.2.0 named its DLL as the `RootModule`, so this path is new in 2.0.0, and it needs no change to `NewRandomPassword.psm1`.
@@ -79,7 +79,7 @@ Measured in both editions unless the row says otherwise. Phase 2 summed this tab
 | `-ExtraCharacters` with an emoji | The surrogate pair is split, so the passwords hold lone surrogates. | A binding error. |
 | `-InputStrings @()`, or `-OnlyUseExtraCharacters -ExtraCharacters @()` | `DivideByZeroException` | A terminating error: no characters to draw from. |
 | `-MinimumLength 6 -MaximumLength 4` | A raw `ArgumentException`, with the error ID `System.ArgumentException,MG.NewRandomPassword.Cmdlets.NewRandomPassword`. | A terminating error with its own ID and the `InvalidArgument` category. |
-| A character listed twice, as in `-InputStrings '1234567890', '234567890'` | Drawn twice as often in the fill, which draws from the groups' characters concatenated. (Phase 2 measured it: across 200 passwords of 100 characters, `1` showed up 0.51 times as often as the other digits on average, in both editions.) | Every distinct character is equally likely. |
+| A character listed twice, as in `-InputStrings '1234567890', '234567890'` | Drawn twice as often in the fill, which draws from the groups' characters concatenated. (Phase 2 measured it: across 200 passwords of 100 characters, `1` showed up 0.51 times as often as the other digits on average, in both editions.) | Every distinct character is equally likely in the fill, and within its group. |
 | `-FirstCharacter 5` | U+0005, a control character. `-FirstCharacter 65` is `A`. | The digit 5 (**Bare numbers for -FirstCharacter**). `-FirstCharacter 65` is a binding error: more than one character. |
 | `-FirstCharacter ([bigint]5)` | A binding error: PowerShell converts no `[bigint]` to a `char`. (Found in Phase 2.) | The digit 5, as for the other integer types. |
 | A control character in `-ExtraCharacters` or `-FirstCharacter`, such as a tab | Passed into the passwords. (Phase 2 measured that a tab binds to either parameter without an error, and that `-FirstCharacter 9 -PasswordLength 1` gives a tab.) | A binding error (**Control characters in user input**). |
@@ -163,7 +163,7 @@ Files:
 - `src/MG.Passwords/FirstCharacterTransformationAttribute.cs`: exists (Phase 2).
 - `src/MG.Passwords/ValidatePasswordCharactersAttribute.cs`: exists (Phase 2).
 - `src/MG.Passwords.Shell/NewRandomPasswordCommand.cs`: exists (Phase 2), compiled by both shell projects.
-- `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml`: Phase 3.
+- `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml`: exists (Phase 3).
 
 ```csharp
 namespace MG.Passwords;
@@ -239,14 +239,22 @@ Three details differ from the plan:
 
 **Outcome:** `New-RandomPassword` and `rpas` run on the new engine in both editions, with 1.2.0's surface and both #3 fixes, and where 1.2.0 crashed or silently dropped input, they fail at binding or with an error of their own.
 
-### Phase 3 — Help and README
+### Phase 3 — Help and README. ✅ Done — 2026-10-24.
 
-- `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml` is hand-written MAML. It has a synopsis; a description of both parameter sets, the group guarantee, `-FirstCharacter`, and per-password lengths; every parameter with its type, required flag, position, pipeline input (none), aliases, and default; and examples: the README's four, plus one each for `-ExtraCharacters` and `-OnlyUseExtraCharacters`. Its notes name the `rpas` alias, because Get-Help shows no ALIASES section for a cmdlet that has a help file, and each example's remarks end with an empty paragraph, which keeps the examples apart (both from `references/help.md`).
-- Both shell projects copy the file into `en-US\` in their build output, where Get-Help finds it when the DLL is imported by its path, as the tests import it. In the release layout, Get-Help finds the copy beside the manifest. One file serves both editions, because both builds are named `MG.Passwords.Shell.dll`.
-- `FileList` gains `en-US\MG.Passwords.Shell.dll-Help.xml`. `HelpInfoURI` stays unset, because any URL but a folder of updatable help makes `Update-Help` fail.
-- `README.md` covers 2.0.0: the PowerShell versions it runs on; `-InputStrings`, `-ExtraCharacters`, and `-OnlyUseExtraCharacters`, which it doesn't mention now; and the changes from 1.2.0.
+Shipped: `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml`, which both shell projects copy into their build output, the help file in the manifest's `FileList`, and a `README.md` for 2.0.0.
 
-Predicted test changes: none.
+- `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml` is hand-written MAML. It has a synopsis; a description of both parameter sets, the group guarantee, `-FirstCharacter`, and per-password lengths; every parameter with its type, required flag, position, pipeline input (none), aliases, and default; and six examples: the four that 1.2.0's README gave, plus one each for `-ExtraCharacters` and `-OnlyUseExtraCharacters`. Its notes name the `rpas` alias, because Get-Help shows no ALIASES section for a cmdlet that has a help file, and each example's remarks end with an empty paragraph, which keeps the examples apart (both from `references/help.md`). Get-Help shows the syntax and the parameters as the file writes them, so each syntax block lists its parameter set's parameters in the order that `Get-Command -Syntax` shows, with the type names that Microsoft's help files use, such as `Int32` and `String[]`, and with no value for `-OnlyUseExtraCharacters`. The description also says that every random choice comes from the operating system's cryptographically secure random number generator, each example shows the output that the Debug build gave for it, and a comment at the top of the file says why its name and place matter.
+- Both shell projects copy the file into `en-US\` in their build output, in every configuration, through a `Content` item that links to it, where Get-Help finds it when the DLL is imported by its path, as the tests import it. In the release layout, Get-Help finds the copy beside the manifest. One file serves both editions, because both builds are named `MG.Passwords.Shell.dll`.
+- `FileList` gained `en-US\MG.Passwords.Shell.dll-Help.xml`. `HelpInfoURI` stayed unset, because any URL but a folder of updatable help makes `Update-Help` fail.
+- `README.md` covers 2.0.0: the PowerShell versions it runs on, with the `Install-Module` command and a pointer to the help; the help's six examples; the default groups and `-InputStrings`, `-ExtraCharacters`, and `-OnlyUseExtraCharacters`, which it didn't mention before, with an example of `-InputStrings` and `-ExtraCharacters` together; and the changes from 1.2.0, in the words of the manifest's `ReleaseNotes`.
+
+Three changes weren't planned:
+
+- One of Phase 2's `ReleaseNotes` lines, "Every distinct character is equally likely", claimed more than the generator does, because the character that each group supplies makes the characters of a small group more likely than the rest. The line now says what the generator does: a character that a group lists twice is as likely as the group's other characters, and the fill draws from the distinct characters of all the groups. The README says the same, and so does the 2.0.0 column of that row of **What changes from 1.2.0**.
+- Two facts about how Get-Help prints a help file, measured on 2026-10-24 in both editions and added to `references/help.md`, set how the file is written. A line break inside a `maml:para` prints as one, followed by the file's indentation, so each paragraph is one line of the file. A line of code longer than the console wraps at a space, so each line of an example's code fits in 76 characters, an 80-character console less Get-Help's indent, which is why the `-OnlyUseExtraCharacters` example gives its length by position.
+- `references/help.md` said that help made up from the cmdlet has the type `CmdletHelpInfo`, and help from a file the type `MamlCommandHelpInfo#<module>#<cmdlet>`. Both are among the help object's type names, but made-up help's first type name is `ExtendedCmdletHelpInfo`, and `-Full` puts names that end in `#FullView` in front of the rest. The reference now lists the type names, measured on 2026-10-24 in both editions, and says to look for `MamlCommandHelpInfo` among them, as Phase 4's 'Help' test will.
+
+**Outcome:** in both editions, `Get-Help New-RandomPassword` shows the hand-written help, whether the DLL is imported by its path or the module through its manifest, and the README describes 2.0.0 and what changed from 1.2.0.
 
 ### Phase 4 — Tests
 
@@ -297,7 +305,7 @@ Each #3 test also runs once against 1.2.0, from a scratch copy of the test file 
 ## Modified files
 
 - `src/MG.Passwords/SecureRandom.cs`: clears its draw buffer in the `netstandard2.0` build (Phase 1, not planned).
-- `NewRandomPassword/NewRandomPassword.psd1`: `ReleaseNotes` (Phase 2), and the help file in `FileList` (Phase 3).
+- `NewRandomPassword/NewRandomPassword.psd1`: `ReleaseNotes` (Phase 2, with one line reworded in Phase 3), and the help file in `FileList` (Phase 3).
 - `src/MG.Passwords.Shell/MG.Passwords.Shell.csproj` and `src/MG.Passwords.Shell-NETFramework/MG.Passwords.Shell-NETFramework.csproj`: copy the help file into `en-US\` (Phase 3).
 - `README.md`: 2.0.0 (Phase 3).
 - `tests/Module.Tests.ps1`: the alias through the manifest (Phase 4).
@@ -318,8 +326,8 @@ Not modified: `NewRandomPassword.psm1`, `ModuleInitializer.cs`, and `src/Directo
 Every run uses stable releases. Its results, with the versions and counts that the `nrp-testing` skill asks for, go in the report to the user, not in this plan.
 
 - **Phase 1:** both shell projects build in Debug with no warnings, and `dotnet test` still passes. A scratch smoke script, run in `pwsh` and in `powershell.exe`, imports each Debug build by its absolute path (the shell first, then `MG.Passwords.dll`) with auto-loading off, gets `MG.Passwords.PasswordGenerator` from the loaded assembly through reflection, and checks: a first character at index 0 in 1,000 passwords; every length from 4 to 20 across 1,000 calls of `Generate(4, 20)`; all four default groups in every 4-character password; a digit or a symbol in some 2-character passwords; U+00E9 unchanged; and lengths 256 and 257. The second takes the `ArrayPool` path, which in Windows PowerShell 5.1 also shows that `System.Buffers` loads.
-- **Phase 2:** `tests/Invoke-Tests.ps1` passes in each edition, and `dotnet test` still passes. A smoke script in each edition, following the `nrp-testing` skill's rules for repros, runs the README's four examples and every row of **What changes from 1.2.0**, and compares `Get-Command New-RandomPassword -Syntax` and the parameter metadata with the 1.2.0 table, expecting only this plan's differences. A staged copy of the manifest layout, built the way `Module.Tests.ps1` builds it, imports in each edition, and `rpas` runs the build's cmdlet.
-- **Phase 3:** in each edition, `Get-Help MG.Passwords.Shell\New-RandomPassword -Full` on the Debug build, imported by its path, is a `MamlCommandHelpInfo` with every parameter and example. The same holds through a staged manifest layout with the help file beside the manifest, and `Update-Help -Module NewRandomPassword` still says that the module has no updatable help.
+- **Phase 2:** `tests/Invoke-Tests.ps1` passes in each edition, and `dotnet test` still passes. A smoke script in each edition, following the `nrp-testing` skill's rules for repros, runs the four examples that 1.2.0's README gave and every row of **What changes from 1.2.0**, and compares `Get-Command New-RandomPassword -Syntax` and the parameter metadata with the 1.2.0 table, expecting only this plan's differences. A staged copy of the manifest layout, built the way `Module.Tests.ps1` builds it, imports in each edition, and `rpas` runs the build's cmdlet.
+- **Phase 3:** in each edition, `Get-Help MG.Passwords.Shell\New-RandomPassword -Full` on the Debug build, imported by its path, is a `MamlCommandHelpInfo` with every parameter and example. The same holds for `Get-Help NewRandomPassword\New-RandomPassword -Full` through a staged manifest layout with the help file beside the manifest, and `Update-Help -Module NewRandomPassword` still says that the module has no updatable help.
 - **Phase 4:** the Pester tests pass in both editions against the Debug and the Release builds, and `dotnet test` passes on both targets. Each #3 test fails against 1.2.0.
 
 ## Open questions

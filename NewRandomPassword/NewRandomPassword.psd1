@@ -96,6 +96,7 @@ FileList = @(
     'Desk\System.Memory.dll',
     'Desk\System.Numerics.Vectors.dll',
     'Desk\System.Runtime.CompilerServices.Unsafe.dll',
+    'en-US\MG.Passwords.Shell.dll-Help.xml',
     'NewRandomPassword.psd1',
     'NewRandomPassword.psm1'
 )
@@ -129,7 +130,7 @@ Every parameter, alias, position, parameter set, and default of 1.2.0 stays. Wha
 - -FirstCharacter always comes first. 1.2.0 put it last in about half the passwords.
 - With -MinimumLength and -MaximumLength, each password gets a random length of its own. 1.2.0 gave every password of a call the same length.
 - A password with fewer characters than there are groups holds characters from a random choice of the groups. 1.2.0 always took the first groups, so a password of 2 or 3 characters never held a symbol.
-- Every distinct character is equally likely. 1.2.0 drew a character that two groups share twice as often.
+- A repeated character doesn't count twice. A character that a group lists twice is as likely as the group's other characters, and the characters that fill a password after one from each group are drawn from the distinct characters of all the groups. 1.2.0 drew a repeated character twice as often.
 - -ExtraCharacters takes a string, a char, a char[], or a collection of them, such as the lines that Get-Content outputs, with one group per element. 1.2.0 refused a single line, a char, or a collection other than an array, and dropped every element that wasn't a string. Get-Command shows the type of -ExtraCharacters as String[] instead of Object.
 - -FirstCharacter 5 starts each password with the digit 5. 1.2.0 read a bare number as a character code, so 5 was a control character, and 65, which was A, is now an error.
 - An argument that can't make a password fails when PowerShell binds it, with an error that names the parameter: an empty group, a control character, a character that takes a surrogate pair, such as an emoji, or a value of another type for -ExtraCharacters.
