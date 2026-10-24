@@ -11,7 +11,7 @@ This file is working notes. Check what it says about the code against the curren
 References:
 
 - `CLAUDE.md`'s reference points. 1.2.0 on the Gallery, built from `accaf2e`, is the compatibility baseline. #3 fixed two generation bugs in the legacy source after 1.2.0 shipped, and a rewrite has to be tested for both again. The `archive/DifferentApproach` tag is an abandoned 2020 rewrite whose `PasswordHolder` must not be copied.
-- `legacy/NRP-DotNet/NewRandomPassword.cs`, the legacy cmdlet with the #3 fixes. The Gallery build predates them.
+- ~~`legacy/NRP-DotNet/NewRandomPassword.cs`~~ `NRP-DotNet/NewRandomPassword.cs` at #3 (`8e90f21`), the legacy cmdlet with the #3 fixes. The Gallery build predates them. (#4 moved it under `legacy/`, which was removed after Phase 2, so only git history keeps it.)
 - The repo's `nrp-pwsh-internals` skill, for measured engine behavior. The binding facts this plan relies on were measured for it and added to its `references/binding.md`, and the alias-export fact to its `references/assembly-loading.md`.
 - The repo's `nrp-testing` skill, for how both suites run and where a test goes.
 
@@ -292,8 +292,8 @@ Each #3 test also runs once against 1.2.0, from a scratch copy of the test file 
 
 | Item | Blocked on |
 |---|---|
-| Release staging: copying the Release DLLs into `NewRandomPassword/Core` and `NewRandomPassword/Desk`, and publishing | A plan of its own. The legacy projects' Release builds still write into `NewRandomPassword/Core` and `NewRandomPassword/DotNet`, so staging has to come after they're gone or keep them out of the build. |
-| Removing `legacy/` and its solution entries | ~~Phase 2.~~ Nothing, now that Phase 2 has shipped. Until the rewrite matched 1.2.0, the legacy cmdlet was the readable reference, and git history keeps it after that. Phase 4 runs the #3 tests against the installed 1.2.0 or `accaf2e`'s DLLs, not against `legacy/`. |
+| Release staging: copying the Release DLLs into `NewRandomPassword/Core` and `NewRandomPassword/Desk`, and publishing | A plan of its own. ~~The legacy projects' Release builds still write into `NewRandomPassword/Core` and `NewRandomPassword/DotNet`, so staging has to come after they're gone or keep them out of the build.~~ (The legacy projects are gone, so no build writes into `NewRandomPassword/` now.) |
+| ~~Removing `legacy/` and its solution entries~~ | ~~Phase 2.~~ ✅ Done — 2026-10-24, after Phase 2: `legacy/` and the solution's `/Legacy/` folder are gone. Until the rewrite matched 1.2.0, the legacy cmdlet was the readable reference, and git history keeps it (see References). Phase 4 runs the #3 tests against the installed 1.2.0 or `accaf2e`'s DLLs, not against `legacy/`. |
 | New features, such as `SecureString` output, named character sets, excluding characters, or pipeline input | A decision to grow the surface past 1.2.0. |
 | Changing the 1.2.0 character sets, such as putting D back | A decision to change the 1.2.0 surface: `-InputStrings` validates against these exact strings. |
 | Characters outside the Basic Multilingual Plane, with a surrogate pair counted as one character | A decision to count lengths in code points instead of UTF-16 code units. |

@@ -32,7 +32,7 @@ pwsh -NoProfile -File tests/Invoke-Tests.ps1 -Configuration Release -Output Deta
 pwsh -NoProfile -Command '& ./tests/Invoke-Tests.ps1 -Tag A, B; exit $LASTEXITCODE'        # several tags
 ```
 
-- Build the two shell projects, not `NewRandomPassword.slnx`. The solution also holds the legacy projects, and `CLAUDE.md` says where their Release builds write.
+- The two shell projects build the engine too, which is all that the Pester tests need. Building `NewRandomPassword.slnx` also builds the engine tests. Before a Release build, check where its output goes, as `CLAUDE.md` says.
 - `Invoke-Tests.ps1` runs the tests in a new `powershell.exe` process and a new `pwsh` process. The imported DLLs unload when those processes exit, so they don't block the next build. The script exits with 1 when a test fails in either edition.
 - The script doesn't build anything. It tests whatever the last build of the configuration left in the output folders, so rebuild after every code change.
 - Pass several tags through `-Command`, as in the last example, whose single quotes keep `$LASTEXITCODE` from expanding in PowerShell or Bash. `-File` passes each argument as a single string, so `-Tag A,B` reaches the script as one tag named `A,B`. No test has that tag, so Pester reports every test as NotRun, with 0 passed and 0 failed, and the script exits with 0 even when tests are failing. A summary in which every test is NotRun means the filter matched nothing. It says nothing about the code.
