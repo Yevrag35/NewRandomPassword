@@ -127,8 +127,9 @@ PrivateData = @{
 
 Every parameter, alias, position, and parameter set of 1.2.0 stays, and so does every default but the character groups. What changes from 1.2.0:
 
-- Passwords are built from every letter and digit by default, and the same six symbols, 68 characters in all. 1.2.0 left out l, o, D, I, O, 0, and 1. To leave out characters that are easy to mistake for others, pass -InputStrings the groups that leave them out, such as abcdefghijkmnpqrstuvwxyz, ABCDEFGHJKLMNPQRSTUVWXYZ, 23456789, and !@$#%&.
+- Passwords are built from every letter and digit by default, and the same six symbols, 68 characters in all. 1.2.0 left out l, o, D, I, O, 0, and 1. To leave out characters that are easy to mistake for others, use -CharacterSet NoLookAlikes, Symbols.
 - -InputStrings takes ABCDEFGHJKLMNPQRSTUVWXYZ, the uppercase letters except I and O, in place of 1.2.0's ABCEFGHJKLMNPQRSTUVWXYZ, which left out D by mistake, so a script that passes 1.2.0's string fails when PowerShell binds it. It also takes every lowercase letter, abcdefghijklmnopqrstuvwxyz, and every uppercase letter, ABCDEFGHIJKLMNOPQRSTUVWXYZ.
+- -CharacterSet is new. It builds passwords from groups that you name, in place of the default groups: Lowercase, Uppercase, Digits, and Symbols, in any combination, as in -CharacterSet Lowercase, Digits. NoLookAlikes stands for the lowercase letters, the uppercase letters, and the digits without l, o, I, O, 0, and 1, and it combines with Symbols. -CharacterSet can't be used with -InputStrings, so Get-Command shows a twin of each of 1.2.0's two parameter sets, in which -CharacterSet takes the place of -InputStrings.
 - -FirstCharacter always comes first. 1.2.0 put it last in about half the passwords.
 - With -MinimumLength and -MaximumLength, each password gets a random length of its own. 1.2.0 gave every password of a call the same length.
 - A password with fewer characters than there are groups holds characters from a random choice of the groups. 1.2.0 always took the first groups, so a password of 2 or 3 characters never held a symbol.

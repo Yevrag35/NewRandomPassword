@@ -1,8 +1,8 @@
 namespace MG.Passwords;
 
 /// <summary>
-/// Provides the groups of characters that <c>-InputStrings</c> accepts, and the groups that passwords are built from
-/// without it.
+/// Provides the groups of characters that <c>-InputStrings</c> accepts and <c>-CharacterSet</c> names, and the groups
+/// that passwords are built from without either.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -67,7 +67,7 @@ internal static class CharacterSets
 	internal const string SymbolsExceptAtAndDollar = "!#%&";
 
 	/// <summary>
-	/// Gets the groups that passwords are built from when <c>-InputStrings</c> isn't given.
+	/// Gets the groups that passwords are built from when neither <c>-CharacterSet</c> nor <c>-InputStrings</c> is given.
 	/// </summary>
 	/// <value>
 	/// A read-only list of <see cref="Lowercase"/>, <see cref="Uppercase"/>, <see cref="Digits"/>, and

@@ -1,6 +1,6 @@
 # Plan: Rewrite New-RandomPassword
 
-> **Status:** Phases 1 to 5 done 2026-10-24. `MG.Passwords` builds the passwords, both shell projects ship `New-RandomPassword` and `rpas` with the 1.2.0 surface, apart from the character sets that Phase 5 changed, and the behavior that **What changes from 1.2.0** lists, a MAML help file and the README describe them, and engine and Pester tests pin that surface and behavior down, the two #3 fixes among them. What's left is under **Out of scope**.
+> **Status:** Phases 1 to 6 done 2026-10-24. `MG.Passwords` builds the passwords, both shell projects ship `New-RandomPassword` and `rpas` with the 1.2.0 surface, apart from the character sets that Phase 5 changed and the `-CharacterSet` parameter that Phase 6 added, and the behavior that **What changes from 1.2.0** lists, a MAML help file and the README describe them, and engine and Pester tests pin that surface and behavior down, the two #3 fixes among them. What's left is under **Out of scope** and **Open questions**.
 
 ## Context
 
@@ -64,7 +64,7 @@ New-RandomPassword [[-Count] <int>] -MinimumLength <int> -MaximumLength <int> [-
 
 ### What changes from 1.2.0
 
-Measured in both editions unless the row says otherwise. Phase 2 summed this table up in the manifest's `ReleaseNotes`, and Phase 5 added the lines for its rows.
+Measured in both editions unless the row says otherwise. Phase 2 summed this table up in the manifest's `ReleaseNotes`, and Phases 5 and 6 added the lines for their rows.
 
 | Call | 1.2.0 | 2.0.0 |
 |---|---|---|
@@ -89,12 +89,15 @@ Measured in both editions unless the row says otherwise. Phase 2 summed this tab
 | `New-RandomPassword`, without `-InputStrings` | Draws from 61 characters: the letters except l, o, D, I, and O, the digits 2 to 9, and `!@$#%&`. | Draws from 68: every letter and digit, and `!@$#%&` (**Every letter and digit by default**). |
 | `-InputStrings 'ABCEFGHJKLMNPQRSTUVWXYZ'` | The uppercase letters except D, I, and O. | A binding error, whose message lists the nine strings that the parameter takes. `ABCDEFGHJKLMNPQRSTUVWXYZ`, the uppercase letters except I and O, takes its place. |
 | `-InputStrings 'abcdefghijklmnopqrstuvwxyz'`, `'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`, or `'ABCDEFGHJKLMNPQRSTUVWXYZ'` | A binding error. | The string's letters. |
+| `-CharacterSet Lowercase, Digits` | A binding error, `NamedParameterNotFound`: there's no such parameter. | The lowercase letters and the digits, as two groups (**Named character sets**). |
+| The parameter sets that `Get-Command` shows | StaticLength and RandomLength. | Those two, and a twin of each, StaticLengthCharacterSet and RandomLengthCharacterSet, in which `-CharacterSet` takes the place of `-InputStrings`. |
+| `-MinimumLength 4` alone, in an interactive session | Prompts for `-MaximumLength`, and then generates the password. | A binding error, `AmbiguousParameterSet`: two sets are left, each missing a mandatory parameter. |
 
 ## Resolved design questions
 
 ### 2.0.0 keeps the 1.2.0 surface
 
-~~Every name, alias, position, parameter set, mandatory flag, default, `ValidateRange` minimum, and `ValidateSet` value in the 1.2.0 table stays, so a script written for 1.2.0 runs unchanged.~~ (Phase 5 changed the default of `-InputStrings` and one of its `ValidateSet` values, as **Every letter and digit by default** explains. Everything else in the 1.2.0 table stays, so a script written for 1.2.0 runs unchanged unless it passes 1.2.0's uppercase string.) Nothing forces a break. The major version is already earned by dropping every PowerShell 6 and 7 release before 7.6: 1.2.0's manifest lists the Core edition with `PowerShellVersion = '5.1'`, so it lets all of them import the module, and 2.0.0's `.psm1` refuses them. And the module already treats 1.2.0 scripts as a contract, as the `rpas` test in `Module.Tests.ps1` shows. Apart from the character sets, what changes is behavior that no script can sensibly depend on: crashes, silently dropped input, and the two #3 bugs, as listed above. Besides the `ValidateSet` values that Phase 5 changed, `Get-Command` shows two changes: the type of `-ExtraCharacters` (see below), and the length maxima, which **Upper bound on lengths** lowers to 1,048,576. (Phase 2 found a third, which no script plausibly reads: `Parameters` lists `-PasswordLength` and `-Count` first, in declaration order, where 1.2.0, which declared them as fields, listed them after the properties. `-Syntax` shows the same order in both.)
+~~Every name, alias, position, parameter set, mandatory flag, default, `ValidateRange` minimum, and `ValidateSet` value in the 1.2.0 table stays, so a script written for 1.2.0 runs unchanged.~~ (Phase 5 changed the default of `-InputStrings` and one of its `ValidateSet` values, as **Every letter and digit by default** explains. Everything else in the 1.2.0 table stays, so a script written for 1.2.0 runs unchanged unless it passes 1.2.0's uppercase string.) Nothing forces a break. The major version is already earned by dropping every PowerShell 6 and 7 release before 7.6: 1.2.0's manifest lists the Core edition with `PowerShellVersion = '5.1'`, so it lets all of them import the module, and 2.0.0's `.psm1` refuses them. And the module already treats 1.2.0 scripts as a contract, as the `rpas` test in `Module.Tests.ps1` shows. Apart from the character sets, what changes is behavior that no script can sensibly depend on: crashes, silently dropped input, and the two #3 bugs, as listed above. Besides the `ValidateSet` values that Phase 5 changed, `Get-Command` shows two changes: the type of `-ExtraCharacters` (see below), and the length maxima, which **Upper bound on lengths** lowers to 1,048,576. (Phase 2 found a third, which no script plausibly reads: `Parameters` lists `-PasswordLength` and `-Count` first, in declaration order, where 1.2.0, which declared them as fields, listed them after the properties. `-Syntax` shows the same order in both.) Phase 6 added `-CharacterSet` and a twin of each parameter set to hold it. Every call that 1.2.0's two sets accepted still binds as it did, and only a call that names one of `-MinimumLength` and `-MaximumLength` without the other changes: it fails instead of prompting for the other (**Named character sets**).
 
 1.2.0's `ConfirmImpact = ConfirmImpact.None` and `[CmdletBinding(PositionalBinding = false)]` aren't carried over. The cmdlet doesn't support `ShouldProcess`, so its confirm impact means nothing, and the rewrite gives a `Position` only to `-PasswordLength` and `-Count`, which Phase 2 checked against the table.
 
@@ -106,11 +109,23 @@ The 1.2.0 strings that leave out look-alikes stay as `-InputStrings` values, exc
 
 The `[ValidateSet]` lists each full set ahead of the sets that leave some of its characters out: the lowercase letters, then the uppercase letters, the digits, and the symbols. `Get-Command` and the binding error show the strings in that order. Tab completion doesn't: it sorts the strings that match, and for `abc` or `ABCD` it offers both alphabets, which differ only in case. Neither edition minds two values like that in one `ValidateSet` (measured on 2026-10-24 in PowerShell 7.6.8 and Windows PowerShell 5.1.26100.9711).
 
+### Named character sets
+
+Decided on 2026-10-24, after Phase 5. `-CharacterSet` names groups instead of spelling out their characters. Its type is a `[Flags]` enum, `CharacterSet`, whose values combine, as in `-CharacterSet Lowercase, Digits`, and it's a parameter of its own that excludes `-InputStrings`. `-InputStrings` stays, for 1.2.0's scripts and for the strings that no value names, such as `234567890` and `!#%&`.
+
+The values are the four default groups, `Lowercase`, `Uppercase`, `Digits`, and `Symbols`, and `NoLookAlikes`, which stands for three groups that leave out look-alikes: the lowercase letters except l and o, the uppercase letters except I and O, and the digits except 0 and 1. It's a choice of its own that takes the place of `Lowercase`, `Uppercase`, and `Digits`, whether or not they're given beside it, and it combines with `Symbols`, so `-CharacterSet NoLookAlikes, Symbols` gives the groups of four `-InputStrings` strings. A flag for each `-InputStrings` string lost: flags combine as a union, so overlapping flags such as `Digits, DigitsExceptZeroAndOne` would have made two digit groups, and two guaranteed digits, which nobody who writes that means, and the enum would only have renamed `-InputStrings`. A `NoLookAlikes` that trimmed only the classes named beside it lost too: as a choice of its own, it says in one word what a caller gets.
+
+No value is 0, and there's no `All`. A `None` would have been a choice that names no group, and an `All` couldn't take in a value added later without changing what the scripts that pass it get. Without a value for 0, PowerShell still binds 0, and a value that already has the enum's type, such as a `-band` of two values or the result of `[enum]::ToObject`, binds with any bits (measured on 2026-10-24 in PowerShell 7.6.8 and Windows PowerShell 5.1.26100.9711). So `ValidateFlagsAttribute` refuses 0 and undefined bits at binding, with an error that names the parameter, as the other bad arguments get. The names were settled before the parameter shipped, because PowerShell binds a single name by any prefix that begins that name alone, so a value added later whose name begins like another's would break a script that shortened the other.
+
+Twin parameter sets make the two parameters exclusive: the set of each length has a twin in which `-CharacterSet`, mandatory there, takes the place of `-InputStrings`. Throwaway cmdlets showed, on the same date and versions, that every call that the two sets accepted resolves as it did, splatted and positional calls included, and that a call with both parameters fails with `AmbiguousParameterSet`. `-CharacterSet` has to be mandatory in the twins: optional there, it made even `-MinimumLength 4 -MaximumLength 6` ambiguous. The sets show the exclusion in `Get-Command` and in the help's syntax, and tab completion after a bare dash leaves out the parameter that the bound ones exclude. They cost two things: the error names neither parameter, and a call that names only one of `-MinimumLength` and `-MaximumLength` fails as ambiguous instead of prompting for the other. A check in `BeginProcessing`, like the one for `-OnlyUseExtraCharacters`, would have named both parameters and kept the prompt, but nothing in the syntax would have shown the rule. Parameter sets lost for `-OnlyUseExtraCharacters` on grounds that don't hold here: that rule makes a switch need another parameter, which sets could only express by failing `-OnlyUseExtraCharacters:$false` too, and their resolution hadn't been measured. Keeping two parameters apart is what sets are for.
+
+The enum is public, and it lives in `MG.Passwords.Shell` rather than the engine. PowerShell resolves a type name only against the assemblies that are loaded, and importing the shell doesn't load the engine, so `[MG.Passwords.CharacterSet]` in a script would have failed until the cmdlet first ran. The cmdlet maps the values to the engine's `CharacterSets` strings.
+
 ### The engine builds passwords, and the shell is only the cmdlet
 
 `MG.Passwords` holds the generator and the parameter attributes that convert and check user input. `MG.Passwords.Shell` holds only `NewRandomPasswordCommand`, which both shell projects compile. The attributes belong in the engine because nothing tests the shell projects directly, while an engine test can call an attribute's `Transform` with `RunspaceFixture.EngineIntrinsics`, which the fixture exposes for exactly that. The engine already references PowerShell in both of its targets, and `Directory.Build.props` gives every project the `System.Management.Automation` usings.
 
-Engine types are `internal`, like `SecureRandom`, and the engine's `InternalsVisibleTo` already covers the shell and the tests. That leaves the cmdlet class, and in the 5.1 build the `ModuleInitializer` that PowerShell has to find, as the module's only public types, so no script can come to depend on an engine type.
+Engine types are `internal`, like `SecureRandom`, and the engine's `InternalsVisibleTo` already covers the shell and the tests. ~~That leaves the cmdlet class, and in the 5.1 build the `ModuleInitializer` that PowerShell has to find, as the module's only public types~~ (Phase 6 added a third public type to the shell, the `CharacterSet` enum, as **Named character sets** explains), so no script can come to depend on an engine type.
 
 ### How a password is built
 
@@ -173,7 +188,9 @@ Files:
 - `src/MG.Passwords/CharacterGroupsTransformationAttribute.cs`: exists (Phase 2).
 - `src/MG.Passwords/FirstCharacterTransformationAttribute.cs`: exists (Phase 2).
 - `src/MG.Passwords/ValidatePasswordCharactersAttribute.cs`: exists (Phase 2).
+- `src/MG.Passwords/ValidateFlagsAttribute.cs`: exists (Phase 6).
 - `src/MG.Passwords.Shell/NewRandomPasswordCommand.cs`: exists (Phase 2), compiled by both shell projects.
+- `src/MG.Passwords.Shell/CharacterSet.cs`: exists (Phase 6), compiled by both shell projects.
 - `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml`: exists (Phase 3).
 
 ```csharp
@@ -206,6 +223,16 @@ internal sealed class PasswordGenerator
 ```
 
 ```csharp
+[Flags]
+public enum CharacterSet
+{
+	Lowercase = 1,
+	Uppercase = 2,
+	Digits = 4,
+	Symbols = 8,
+	NoLookAlikes = 16
+}
+
 [Cmdlet(VerbsCommon.New, "RandomPassword", DefaultParameterSetName = "StaticLength")]
 [Alias("rpas")]
 [OutputType(typeof(string))]
@@ -322,12 +349,26 @@ Shipped: the character sets of **Every letter and digit by default**, in `src/MG
 
 **Outcome:** without `-InputStrings`, passwords draw from every letter and digit and six symbols, and a caller who wants passwords without look-alikes asks for them with `-InputStrings`, D included in the uppercase letters.
 
+### Phase 6 — Named character sets. ✅ Done — 2026-10-24.
+
+Shipped: `-CharacterSet`, as **Named character sets** decided it. That's the public `CharacterSet` enum in `src/MG.Passwords.Shell/CharacterSet.cs`, which both shell projects compile, `ValidateFlagsAttribute` in `src/MG.Passwords/ValidateFlagsAttribute.cs`, the parameter and its two parameter sets in `NewRandomPasswordCommand`, and the help, the README, the release notes, and the tests to match. The phase wasn't planned: it did the work of the named character sets in the **Out of scope** row of new features. Every type and member has XML documentation that follows the `csharp-xml-docs` skill, and the docs of the enum, which is public, name no internal type.
+
+- `CharacterSet` is a `[Flags]` enum of five values: `Lowercase` (1), `Uppercase` (2), `Digits` (4), `Symbols` (8), and `NoLookAlikes` (16).
+- `ValidateFlagsAttribute`, a `ValidateArgumentsAttribute`, refuses 0, any bit that none of the enum's values holds, and a value that isn't an enum value, with a `ValidationMetadataException` whose message lists the values. Like `ValidatePasswordCharactersAttribute`, its `Validate` only calls an internal static rule, `ValidateFlags(object?)`, which the engine tests call directly. The rule reads the values from the type of the value it checks, so it serves any `[Flags]` enum and lives in the engine, and it compares bits as a `ulong`, with signed types sign-extended, so it works for every underlying type, the top bit of a `ulong` and a negative value included.
+- The cmdlet gained the parameter sets `StaticLengthCharacterSet` and `RandomLengthCharacterSet`. `-PasswordLength`, `-MinimumLength`, and `-MaximumLength` also belong to the twin of their set, `-InputStrings` belongs only to `StaticLength` and `RandomLength`, and `-CharacterSet`, with `[ValidateFlags]`, belongs only to the twins, where it's mandatory. The other parameters stay in every set.
+- A private `IsRandomLength` accepts both random-length sets, for the `MinimumLengthExceedsMaximumLength` check in `BeginProcessing` and for the length that `ProcessRecord` draws, which had each compared the set's name with `RandomLength` alone.
+- When `-CharacterSet` is bound, `BeginProcessing` builds the groups from it through a private `AddCharacterSetGroups`. `NoLookAlikes` adds `CharacterSets.LowercaseExceptLAndO`, `UppercaseExceptIAndO`, and `DigitsExceptZeroAndOne` in place of the groups of `Lowercase`, `Uppercase`, and `Digits`, and `Symbols` adds `CharacterSets.Symbols`, in the order of the default groups. `-OnlyUseExtraCharacters` leaves these groups out, as it leaves out the `-InputStrings` groups (see **Keep -OnlyUseExtraCharacters**).
+- The help describes `-CharacterSet`, its values, and what it excludes, and has four syntax blocks, in the order of `Get-Command -Syntax`: StaticLength, StaticLengthCharacterSet, RandomLength, and RandomLengthCharacterSet. The syntax entries of `-CharacterSet` list the values in a `command:parameterValueGroup`, so the syntax shows `-CharacterSet {Lowercase | Uppercase | Digits | Symbols | NoLookAlikes}` (measured on 2026-10-24 in both editions). A new Example 5 chooses `Lowercase, Digits`, Example 6 leaves out look-alikes with `NoLookAlikes, Symbols` in place of four `-InputStrings` strings, and the examples of `-ExtraCharacters` and `-OnlyUseExtraCharacters` became Examples 7 and 8. The README's examples and character groups, and the release notes, follow.
+- In the Pester tests, 'Parameters' checks the four sets and the nine parameters, with each type written as its name, because the enum isn't loaded yet when Pester evaluates `-ForEach` data during discovery, and checks the enum's names, its values, and its `[Flags]`. 'Positional binding' covers both twins. A 'CharacterSet' context checks the characters of each value and of combinations, `NoLookAlikes` beside the values it takes the place of, `-ExtraCharacters` added to the groups, random lengths and `MinimumLengthExceedsMaximumLength` in the random-length twin, `AmbiguousParameterSet` with `-InputStrings`, and the binding error for 0, for a `-band` that leaves no bits, and for an undefined bit. 'Help' checks the four syntax blocks and `-CharacterSet`. In the engine tests, `ValidateFlagsAttributeTests` checks the rule for combinations that it accepts, 0, undefined bits, the underlying types, and values that aren't enum values. The tests came with the phase, because it was the feature's only one, so the surface they cover had stopped moving.
+
+**Outcome:** `-CharacterSet` builds passwords from named groups that combine, such as `-CharacterSet NoLookAlikes, Symbols` for passwords without look-alikes, and every call that 1.2.0's two parameter sets accepted binds as it did.
+
 ### Out of scope
 
 | Item | Blocked on |
 |---|---|
 | Release staging: copying the Release DLLs into `NewRandomPassword/Core` and `NewRandomPassword/Desk`, and publishing | A plan of its own. |
-| New features, such as `SecureString` output, named character sets, excluding characters, or pipeline input | A decision to grow the surface past 1.2.0. |
+| New features, such as `SecureString` output, excluding characters, or pipeline input. Phase 6 added named character sets. | A decision to grow the surface for each one. |
 | Characters outside the Basic Multilingual Plane, with a surrogate pair counted as one character | A decision to count lengths in code points instead of UTF-16 code units. |
 | Updatable help | A hosted folder of updatable help for `HelpInfoURI`. |
 
@@ -338,19 +379,22 @@ Shipped: the character sets of **Every letter and digit by default**, in `src/MG
 - `src/MG.Passwords/CharacterGroupsTransformationAttribute.cs` (Phase 2): turns `-ExtraCharacters` input into groups.
 - `src/MG.Passwords/FirstCharacterTransformationAttribute.cs` (Phase 2): reads a bare number given to `-FirstCharacter` as its digits.
 - `src/MG.Passwords/ValidatePasswordCharactersAttribute.cs` (Phase 2): refuses control characters, surrogates, and empty groups in both parameters.
-- `src/MG.Passwords.Shell/NewRandomPasswordCommand.cs` (Phase 2): the cmdlet, for both shells.
-- `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml` (Phase 3): help for both editions.
+- `src/MG.Passwords/ValidateFlagsAttribute.cs` (Phase 6): refuses 0 and undefined bits in a `[Flags]` enum value.
+- `src/MG.Passwords.Shell/NewRandomPasswordCommand.cs` (Phase 2, with Phase 6's `-CharacterSet`): the cmdlet, for both shells.
+- `src/MG.Passwords.Shell/CharacterSet.cs` (Phase 6): the enum of `-CharacterSet`, for both shells.
+- `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml` (Phase 3, with Phase 6's `-CharacterSet`): help for both editions.
 - `src/MG.Passwords.Tests/PasswordGeneratorTests.cs`, `CharacterGroupsTransformationAttributeTests.cs`, `FirstCharacterTransformationAttributeTests.cs`, and `ValidatePasswordCharactersAttributeTests.cs` (Phase 4): the engine tests.
 - `src/MG.Passwords.Tests/Distribution.cs` (Phase 4, not planned): the equal-likelihood assertion that two test classes share.
 - `src/MG.Passwords.Tests/SharedArrayPoolCollection.cs` (Phase 4, not planned): the test collection that keeps other tests from using the shared pool while a buffer test checks it.
-- `tests/New-RandomPassword.Tests.ps1` (Phase 4): the cmdlet's Pester tests.
+- `src/MG.Passwords.Tests/ValidateFlagsAttributeTests.cs` (Phase 6): the engine tests of `ValidateFlagsAttribute`.
+- `tests/New-RandomPassword.Tests.ps1` (Phase 4, with Phase 6's tests): the cmdlet's Pester tests.
 
 ## Modified files
 
 - `src/MG.Passwords/SecureRandom.cs`: clears its draw buffer in the `netstandard2.0` build (Phase 1, not planned).
-- `NewRandomPassword/NewRandomPassword.psd1`: `ReleaseNotes` (Phase 2, with one line reworded in Phase 3 and the character sets added in Phase 5), and the help file in `FileList` (Phase 3).
+- `NewRandomPassword/NewRandomPassword.psd1`: `ReleaseNotes` (Phase 2, with one line reworded in Phase 3, the character sets added in Phase 5, and `-CharacterSet` in Phase 6), and the help file in `FileList` (Phase 3).
 - `src/MG.Passwords.Shell/MG.Passwords.Shell.csproj` and `src/MG.Passwords.Shell-NETFramework/MG.Passwords.Shell-NETFramework.csproj`: copy the help file into `en-US\` (Phase 3).
-- `README.md`: 2.0.0 (Phase 3), and the character sets (Phase 5).
+- `README.md`: 2.0.0 (Phase 3), the character sets (Phase 5), and `-CharacterSet` (Phase 6).
 - `tests/Module.Tests.ps1`: the alias through the manifest (Phase 4).
 - `src/MG.Passwords.Tests/SecureRandomTests.cs`: calls the shared `Distribution.AssertEquallyLikely` (Phase 4, not planned).
 
@@ -374,6 +418,7 @@ Every run uses stable releases. Its results, with the PowerShell versions and th
 - **Phase 3:** in each edition, `Get-Help MG.Passwords.Shell\New-RandomPassword -Full` on the Debug build, imported by its path, is a `MamlCommandHelpInfo` with every parameter and example. The same holds for `Get-Help NewRandomPassword\New-RandomPassword -Full` through a staged manifest layout with the help file beside the manifest, and `Update-Help -Module NewRandomPassword` still says that the module has no updatable help.
 - **Phase 4:** the Pester tests pass in both editions against the Debug and the Release builds, and `dotnet test` passes on both targets. Each #3 test fails against 1.2.0.
 - **Phase 5:** the Pester tests pass in both editions, and `dotnet test` passes on both targets. A smoke script in each edition, with the build imported by its absolute path, checks that the default output draws from 68 characters, that each new string gives its own letters, that `-InputStrings 'ABCEFGHJKLMNPQRSTUVWXYZ'` fails at binding with an error that lists the nine strings, and that tab completion of `-InputStrings` offers them. The same calls against `accaf2e`'s DLLs give the 1.2.0 column of Phase 5's rows in **What changes from 1.2.0**.
+- **Phase 6:** the Pester tests pass in both editions, and `dotnet test` passes on both targets. A smoke script in each edition, with auto-loading off and the build imported by its absolute path, checks that each value of `-CharacterSet`, and each combination, gives its own characters; that `NoLookAlikes` takes the place of `Lowercase`, `Uppercase`, and `Digits`; that 0, a `-band` that leaves no bits, and `[enum]::ToObject([MG.Passwords.CharacterSet], 64)` fail validation; that `-CharacterSet` with `-InputStrings` fails with `AmbiguousParameterSet`; that random lengths and `MinimumLengthExceedsMaximumLength` work in the random-length twin; that `'MG.Passwords.CharacterSet' -as [type]` resolves right after the import; that completion offers the five values; and that Get-Help shows them in the syntax. With an answer piped to stdin and without `-NonInteractive`, `-MinimumLength 4` alone prompts in 1.2.0 and fails with `AmbiguousParameterSet` in 2.0.0, and against `accaf2e`'s DLLs, `-CharacterSet` fails with `NamedParameterNotFound`.
 
 ## Open questions
 
@@ -382,3 +427,4 @@ Every run uses stable releases. Its results, with the PowerShell versions and th
 - **-OnlyUseExtraCharacters without -ExtraCharacters.** ✅ Resolved 2026-10-24 — an error from `BeginProcessing`, option (b). When `-OnlyUseExtraCharacters` is present and `-ExtraCharacters` isn't bound, `BeginProcessing` ends the statement through `ThrowTerminatingError`, with the error ID `OnlyUseExtraCharactersWithoutExtraCharacters`, the `InvalidArgument` category, and a message that says the switch needs `-ExtraCharacters`, before any password is generated. 1.2.0 ignored the switch (measured) and drew from the default groups, or from the `-InputStrings` groups when they were given, so keeping that, option (a), would have left the switch's promise of passwords from the caller's characters only silently broken. The check reads `IsPresent`, so `-OnlyUseExtraCharacters:$false`, as splatting passes it, still works without `-ExtraCharacters`, and the switch stays a static parameter in 1.2.0's two parameter sets.
 	Two ways to make the binder enforce the rule were considered on 2026-10-24 and lost. (c), parameter sets, needed four sets, because the length choice already splits the cmdlet in two, so each set needed a twin in which `-OnlyUseExtraCharacters` and `-ExtraCharacters` are both mandatory. It would have failed `-OnlyUseExtraCharacters:$false` without `-ExtraCharacters`, since an explicit `$false` still counts as bound, would have given the switch alone the binder's generic error instead of one that names the rule, and depended on set resolution that was never measured. (d), a dynamic switch that `GetDynamicParameters` offers only when `-ExtraCharacters` is bound, would have failed the switch alone with `NamedParameterNotFound`, which reads as if the parameter doesn't exist, dropped the switch from `Get-Command -Syntax` and `Parameters`, and failed the `:$false` call too. Both would only have moved the failure from `BeginProcessing` to binding, and every option ends the statement before a password exists, so failing earlier gained the caller nothing.
 - **Upper bound on lengths.** ✅ Resolved 2026-10-24 — capped at 1,048,576 characters, option (b). The `ValidateRange` maxima become 1,048,576 for `-PasswordLength` and `-MaximumLength` and 1,048,575 for `-MinimumLength`, and the minima stay 1, 2, and 1. That's a 2 MB string, far beyond any password or key, and a longer request now fails at binding with the range message. 1.2.0's maxima of 2,147,483,647 accepted lengths that no .NET string can hold, about 2^30 characters at most, so the largest requests could only end in an `OutOfMemoryException`. `Get-Command` shows the new maxima, which no script reads. `GetLength` keeps its overflow-safe draw, because the engine doesn't assume the cmdlet's cap.
+- **Keep -OnlyUseExtraCharacters.** Raised on 2026-10-24, while Phase 6 was designed: whether the switch should stay at all. Until that's settled, it leaves out the `-CharacterSet` groups as it leaves out the `-InputStrings` groups. Removing it would break the 1.2.0 scripts that pass it, so it would go in 2.0.0, or wait for the next major version.

@@ -27,30 +27,33 @@ Describe 'New-RandomPassword' {
 			$commonParameters = @([System.Management.Automation.Cmdlet]::CommonParameters) + @([System.Management.Automation.Cmdlet]::OptionalCommonParameters)
 		}
 
-		It 'has the StaticLength and RandomLength parameter sets, with StaticLength as the default' {
+		It 'has the parameter sets of 1.2.0 and a -CharacterSet twin of each, with StaticLength as the default' {
 			$command.DefaultParameterSet | Should-Be 'StaticLength'
-			(@($command.ParameterSets.Name | Sort-Object) -join ', ') | Should-Be 'RandomLength, StaticLength'
+			(@($command.ParameterSets.Name | Sort-Object) -join ', ') | Should-Be 'RandomLength, RandomLengthCharacterSet, StaticLength, StaticLengthCharacterSet'
 		}
 
-		It 'has the parameters of 1.2.0 and the common parameters, and no other' {
+		It 'has the parameters of 1.2.0, -CharacterSet, and the common parameters, and no other' {
 			$names = @($command.Parameters.Keys | Where-Object { $commonParameters -notcontains $_ } | Sort-Object)
-			($names -join ', ') | Should-Be 'Count, ExtraCharacters, FirstCharacter, InputStrings, MaximumLength, MinimumLength, OnlyUseExtraCharacters, PasswordLength'
+			($names -join ', ') | Should-Be 'CharacterSet, Count, ExtraCharacters, FirstCharacter, InputStrings, MaximumLength, MinimumLength, OnlyUseExtraCharacters, PasswordLength'
 		}
 
 		# The values are those of 1.2.0's cmdlet at accaf2e, except that -ExtraCharacters takes a String[] instead of an
-		# Object, and the lengths stop at 1,048,576 instead of 2,147,483,647, or 2,147,483,646 for -MinimumLength.
+		# Object, and the lengths stop at 1,048,576 instead of 2,147,483,647, or 2,147,483,646 for -MinimumLength. Each of
+		# 1.2.0's sets has a twin in which -CharacterSet, mandatory there, takes the place of -InputStrings. The types are
+		# names, because the cmdlet's enum isn't loaded yet when Pester discovers the tests.
 		It 'declares the type, aliases, range, parameter sets, and position of -<Name>' -ForEach @(
-			@{ Name = 'PasswordLength'; Type = [int]; Aliases = 'l', 'length'; ParameterSets = 'StaticLength'; Position = 0; Mandatory = $false; Range = '1, 1048576' }
-			@{ Name = 'Count'; Type = [int]; Aliases = @(); ParameterSets = 'RandomLength', 'StaticLength'; Position = 1; Mandatory = $false; Range = '1, 2147483647' }
-			@{ Name = 'MinimumLength'; Type = [int]; Aliases = 'min', 'minlength'; ParameterSets = 'RandomLength'; Position = 'named'; Mandatory = $true; Range = '1, 1048575' }
-			@{ Name = 'MaximumLength'; Type = [int]; Aliases = 'max', 'maxlength'; ParameterSets = 'RandomLength'; Position = 'named'; Mandatory = $true; Range = '2, 1048576' }
-			@{ Name = 'InputStrings'; Type = [string[]]; Aliases = 'strings'; ParameterSets = 'RandomLength', 'StaticLength'; Position = 'named'; Mandatory = $false; Range = '' }
-			@{ Name = 'ExtraCharacters'; Type = [string[]]; Aliases = 'chars', 'ec'; ParameterSets = 'RandomLength', 'StaticLength'; Position = 'named'; Mandatory = $false; Range = '' }
-			@{ Name = 'OnlyUseExtraCharacters'; Type = [switch]; Aliases = 'onlyec'; ParameterSets = 'RandomLength', 'StaticLength'; Position = 'named'; Mandatory = $false; Range = '' }
-			@{ Name = 'FirstCharacter'; Type = [char]; Aliases = 'fc', 'FirstChar'; ParameterSets = 'RandomLength', 'StaticLength'; Position = 'named'; Mandatory = $false; Range = '' }
+			@{ Name = 'PasswordLength'; Type = 'System.Int32'; Aliases = 'l', 'length'; ParameterSets = 'StaticLength', 'StaticLengthCharacterSet'; Position = 0; Mandatory = $false; Range = '1, 1048576' }
+			@{ Name = 'Count'; Type = 'System.Int32'; Aliases = @(); ParameterSets = 'RandomLength', 'RandomLengthCharacterSet', 'StaticLength', 'StaticLengthCharacterSet'; Position = 1; Mandatory = $false; Range = '1, 2147483647' }
+			@{ Name = 'MinimumLength'; Type = 'System.Int32'; Aliases = 'min', 'minlength'; ParameterSets = 'RandomLength', 'RandomLengthCharacterSet'; Position = 'named'; Mandatory = $true; Range = '1, 1048575' }
+			@{ Name = 'MaximumLength'; Type = 'System.Int32'; Aliases = 'max', 'maxlength'; ParameterSets = 'RandomLength', 'RandomLengthCharacterSet'; Position = 'named'; Mandatory = $true; Range = '2, 1048576' }
+			@{ Name = 'InputStrings'; Type = 'System.String[]'; Aliases = 'strings'; ParameterSets = 'RandomLength', 'StaticLength'; Position = 'named'; Mandatory = $false; Range = '' }
+			@{ Name = 'CharacterSet'; Type = 'MG.Passwords.CharacterSet'; Aliases = @(); ParameterSets = 'RandomLengthCharacterSet', 'StaticLengthCharacterSet'; Position = 'named'; Mandatory = $true; Range = '' }
+			@{ Name = 'ExtraCharacters'; Type = 'System.String[]'; Aliases = 'chars', 'ec'; ParameterSets = 'RandomLength', 'RandomLengthCharacterSet', 'StaticLength', 'StaticLengthCharacterSet'; Position = 'named'; Mandatory = $false; Range = '' }
+			@{ Name = 'OnlyUseExtraCharacters'; Type = 'System.Management.Automation.SwitchParameter'; Aliases = 'onlyec'; ParameterSets = 'RandomLength', 'RandomLengthCharacterSet', 'StaticLength', 'StaticLengthCharacterSet'; Position = 'named'; Mandatory = $false; Range = '' }
+			@{ Name = 'FirstCharacter'; Type = 'System.Char'; Aliases = 'fc', 'FirstChar'; ParameterSets = 'RandomLength', 'RandomLengthCharacterSet', 'StaticLength', 'StaticLengthCharacterSet'; Position = 'named'; Mandatory = $false; Range = '' }
 		) {
 			$parameter = $command.Parameters[$Name]
-			$parameter.ParameterType | Should-Be $Type
+			$parameter.ParameterType.FullName | Should-Be $Type
 			(@($parameter.Aliases | Sort-Object) -join ', ') | Should-Be (@($Aliases | Sort-Object) -join ', ')
 			$ranges = @($parameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] } | ForEach-Object { '{0}, {1}' -f $_.MinRange, $_.MaxRange })
 			($ranges -join '; ') | Should-Be $Range -Because 'ValidateRange should allow the same lengths and counts'
@@ -76,6 +79,15 @@ Describe 'New-RandomPassword' {
 			$validateSet = $command.Parameters['InputStrings'].Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
 			($validateSet.ValidValues -join ' ') | Should-BeString -CaseSensitive 'abcdefghijklmnopqrstuvwxyz abcdefghijkmnpqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ ABCDEFGHJKLMNPQRSTUVWXYZ 1234567890 234567890 23456789 !@$#%& !#%&'
 			$validateSet.IgnoreCase | Should-BeTrue
+		}
+
+		# Scripts name these values, and PowerShell binds a single name by any prefix that begins that name alone, so a
+		# value renamed, or a value added later whose name begins like another's, would break a script. No value is 0.
+		It 'takes five flags for -CharacterSet' {
+			$type = $command.Parameters['CharacterSet'].ParameterType
+			$type.IsDefined([System.FlagsAttribute], $false) | Should-BeTrue
+			([enum]::GetNames($type) -join ', ') | Should-BeString -CaseSensitive 'Lowercase, Uppercase, Digits, Symbols, NoLookAlikes'
+			(@([enum]::GetValues($type) | ForEach-Object { [int]$_ }) -join ', ') | Should-Be '1, 2, 4, 8, 16'
 		}
 
 		It 'declares that it outputs strings' {
@@ -163,6 +175,18 @@ Describe 'New-RandomPassword' {
 			$passwords | Should-BeCollection -Count 3
 			$passwords | Should-All { $_.Length -ge 4 -and $_.Length -le 6 }
 		}
+
+		It 'binds two numbers to -PasswordLength and -Count with -CharacterSet' {
+			$passwords = New-RandomPassword 12 3 -CharacterSet Digits
+			$passwords | Should-BeCollection -Count 3
+			$passwords | Should-All { $_ -match '^\d{12}$' }
+		}
+
+		It 'binds a number to -Count with -MinimumLength, -MaximumLength, and -CharacterSet' {
+			$passwords = New-RandomPassword -MinimumLength 4 -MaximumLength 6 3 -CharacterSet Digits
+			$passwords | Should-BeCollection -Count 3
+			$passwords | Should-All { $_ -match '^\d{4,6}$' }
+		}
 	}
 
 	Context 'Character groups' {
@@ -214,6 +238,71 @@ Describe 'New-RandomPassword' {
 		It 'holds a character for each listing of a group listed twice' {
 			$passwords = New-RandomPassword -PasswordLength 3 -Count 200 -InputStrings 'abcdefghijkmnpqrstuvwxyz', '23456789', '23456789'
 			$passwords | Should-All { ($_ -replace '\D').Length -eq 2 }
+		}
+	}
+
+	Context 'CharacterSet' {
+		BeforeDiscovery {
+			$noLookAlikes = 'abcdefghijkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789'
+			$combinations = @(
+				@{ Name = 'Lowercase'; Values = @('Lowercase'); Groups = @('abcdefghijklmnopqrstuvwxyz') }
+				@{ Name = 'Uppercase'; Values = @('Uppercase'); Groups = @('ABCDEFGHIJKLMNOPQRSTUVWXYZ') }
+				@{ Name = 'Digits'; Values = @('Digits'); Groups = @('1234567890') }
+				@{ Name = 'Symbols'; Values = @('Symbols'); Groups = @('!@$#%&') }
+				@{ Name = 'Lowercase, Digits'; Values = @('Lowercase', 'Digits'); Groups = @('abcdefghijklmnopqrstuvwxyz', '1234567890') }
+				@{ Name = 'NoLookAlikes'; Values = @('NoLookAlikes'); Groups = $noLookAlikes }
+				@{ Name = 'NoLookAlikes, Symbols'; Values = @('NoLookAlikes', 'Symbols'); Groups = $noLookAlikes + '!@$#%&' }
+				@{ Name = 'NoLookAlikes, Lowercase, Uppercase, Digits'; Values = @('NoLookAlikes', 'Lowercase', 'Uppercase', 'Digits'); Groups = $noLookAlikes }
+			)
+		}
+
+		# NoLookAlikes takes the place of Lowercase, Uppercase, and Digits, so they add nothing beside it. With 6,000
+		# characters drawn, the chance that a character of the groups never shows up is below 10^-38 for each combination.
+		It 'draws from the groups of -CharacterSet <Name>, and only those' -ForEach $combinations {
+			$passwords = New-RandomPassword -PasswordLength 30 -Count 200 -CharacterSet $Values
+			Get-DistinctCharacter $passwords | Should-BeString -CaseSensitive (Get-DistinctCharacter $Groups)
+			foreach ($group in $Groups) {
+				$passwords | Should-All { $_.IndexOfAny($group.ToCharArray()) -ge 0 } -Because "every password should hold one of $group"
+			}
+		}
+
+		# With 6,000 characters drawn, the chance that one of the 12 never shows up is below 10^-219.
+		It 'adds the -ExtraCharacters groups to its own' {
+			$passwords = New-RandomPassword -PasswordLength 30 -Count 200 -CharacterSet Digits -ExtraCharacters '*+'
+			Get-DistinctCharacter $passwords | Should-BeString -CaseSensitive (Get-DistinctCharacter '1234567890', '*+')
+			$passwords | Should-All { $_.IndexOfAny([char[]]'*+') -ge 0 } -Because 'every password should hold one of *+'
+		}
+
+		# Each set of a length has a twin for -CharacterSet, so a check of the set for random lengths has to accept both.
+		# With 3 lengths to draw from, the chance that 300 passwords miss one is below 10^-52, and the chance that a digit
+		# never shows up is below 10^-67.
+		It 'gives each password a random length from -MinimumLength to -MaximumLength' {
+			$passwords = New-RandomPassword -MinimumLength 4 -MaximumLength 6 -Count 300 -CharacterSet Digits
+			$lengths = @($passwords | ForEach-Object { $_.Length } | Sort-Object -Unique)
+			($lengths -join ', ') | Should-Be '4, 5, 6'
+			Get-DistinctCharacter $passwords | Should-BeString -CaseSensitive (Get-DistinctCharacter '1234567890')
+		}
+
+		It 'fails with MinimumLengthExceedsMaximumLength for a minimum greater than the maximum' {
+			$err = { New-RandomPassword -MinimumLength 6 -MaximumLength 4 -CharacterSet Digits } | Should-Throw -FullyQualifiedErrorId 'MinimumLengthExceedsMaximumLength,*'
+			$err.CategoryInfo.Category | Should-Be 'InvalidArgument'
+		}
+
+		# The parameter sets keep the two apart.
+		It 'fails at binding with -InputStrings' {
+			{ New-RandomPassword -CharacterSet Digits -InputStrings '23456789' } | Should-Throw -FullyQualifiedErrorId 'AmbiguousParameterSet,*'
+		}
+
+		# PowerShell refuses an undefined bit when it converts an argument, but a value that already has the enum's type
+		# binds as it is, and 0 binds although no value is 0. The validation after the binding refuses both. Each argument
+		# is a script block, because the enum isn't loaded yet when Pester discovers the tests.
+		It 'fails at binding for <Description>' -ForEach @(
+			@{ Description = '0'; Argument = { 0 } }
+			@{ Description = 'a -band of two values that share no bits'; Argument = { [MG.Passwords.CharacterSet]::Lowercase -band [MG.Passwords.CharacterSet]::Digits } }
+			@{ Description = 'a value with a bit that no value defines'; Argument = { [enum]::ToObject([MG.Passwords.CharacterSet], 64) } }
+		) {
+			$value = & $Argument
+			{ New-RandomPassword -CharacterSet $value } | Should-Throw -FullyQualifiedErrorId 'ParameterArgumentValidationError,*'
 		}
 	}
 
@@ -349,7 +438,9 @@ Describe 'New-RandomPassword' {
 		# parameters of its set in the order that Get-Command shows them, where the set's syntax names each one as -Name.
 		It 'shows the <Name> parameter set in syntax block <Index> as the cmdlet declares it' -ForEach @(
 			@{ Name = 'StaticLength'; Index = 0 }
-			@{ Name = 'RandomLength'; Index = 1 }
+			@{ Name = 'StaticLengthCharacterSet'; Index = 1 }
+			@{ Name = 'RandomLength'; Index = 2 }
+			@{ Name = 'RandomLengthCharacterSet'; Index = 3 }
 		) {
 			@($help.syntax.syntaxItem).Count | Should-Be @($command.ParameterSets).Count
 			$set = $command.ParameterSets | Where-Object Name -EQ $Name
@@ -380,7 +471,7 @@ Describe 'New-RandomPassword' {
 			(@($help.parameters.parameter.name | Sort-Object) -join ', ') | Should-Be ($names -join ', ')
 		}
 
-		It 'describes -<_> as the cmdlet declares it' -ForEach 'PasswordLength', 'Count', 'MinimumLength', 'MaximumLength', 'InputStrings', 'ExtraCharacters', 'OnlyUseExtraCharacters', 'FirstCharacter' {
+		It 'describes -<_> as the cmdlet declares it' -ForEach 'PasswordLength', 'Count', 'MinimumLength', 'MaximumLength', 'InputStrings', 'CharacterSet', 'ExtraCharacters', 'OnlyUseExtraCharacters', 'FirstCharacter' {
 			$name = $_
 			$parameter = @($help.parameters.parameter) | Where-Object name -EQ $name
 			$metadata = $command.Parameters[$name]
