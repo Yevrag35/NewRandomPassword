@@ -8,14 +8,14 @@ This file is working notes. Check what it says about the code against the curren
 
 References:
 
-- `CLAUDE.md`'s reference points. 1.2.0 on the Gallery, built from `accaf2e`, is the compatibility baseline. `8e90f21` (#3) fixed two generation bugs in the legacy source after 1.2.0 shipped, and a rewrite has to be tested for both again. The `archive/DifferentApproach` tag is an abandoned 2020 rewrite whose `PasswordHolder` must not be copied.
+- `CLAUDE.md`'s reference points. 1.2.0 on the Gallery, built from `accaf2e`, is the compatibility baseline. #3 fixed two generation bugs in the legacy source after 1.2.0 shipped, and a rewrite has to be tested for both again. The `archive/DifferentApproach` tag is an abandoned 2020 rewrite whose `PasswordHolder` must not be copied.
 - `legacy/NRP-DotNet/NewRandomPassword.cs`, the legacy cmdlet with the #3 fixes. The Gallery build predates them.
 - The repo's `nrp-pwsh-internals` skill, for measured engine behavior. The binding facts this plan relies on were measured for it and added to its `references/binding.md`, and the alias-export fact to its `references/assembly-loading.md`.
 - The repo's `nrp-testing` skill, for how both suites run and where a test goes.
 
 ## Audit
 
-Done on 2026-10-23 against `debae4c` plus `SecureRandom.cs` and `SecureRandomTests.cs`, which weren't committed yet, with .NET SDK 10.0.402, PowerShell 7.6.8, and Windows PowerShell 5.1.26100.9711. #4 then landed all of it on `dev` as one squashed commit, `4fe521f`, so `debae4c` isn't in `dev`'s history. GitHub keeps it under `refs/pull/4/head`.
+Done on 2026-10-23 on #4's branch, before `SecureRandom.cs` and `SecureRandomTests.cs` were committed there, with .NET SDK 10.0.402, PowerShell 7.6.8, and Windows PowerShell 5.1.26100.9711.
 
 ### What exists and what the rewrite needs
 
