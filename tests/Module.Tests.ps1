@@ -45,7 +45,8 @@ Describe 'NewRandomPassword module' {
 		# A release puts each edition's build in its own folder beside the manifest, and NewRandomPassword.psm1 imports
 		# the one for the running edition. The test stages that layout with every DLL of this edition's build and imports
 		# it in a new process, because this process has already loaded MG.Passwords.Shell.dll from the build's output folder.
-		It 'loads the build for this edition' {
+		# The other tests import the DLL by its path, so only this one sees the alias that the manifest exports.
+		It 'loads the build for this edition and exports rpas' {
 			if ($PSVersionTable.PSEdition -eq 'Core') {
 				$folder = 'Core'
 			}
@@ -59,11 +60,13 @@ Describe 'NewRandomPassword module' {
 			Copy-Item -Path (Join-Path (Split-Path -Parent $module.Path) '*.dll') -Destination $buildFolder
 
 			$executable = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-			$command = "`$PSModuleAutoLoadingPreference = 'None'; (Import-Module -Name '$stage\NewRandomPassword.psd1' -PassThru -ErrorAction Stop).NestedModules.Path"
+			$command = "`$PSModuleAutoLoadingPreference = 'None'; `$staged = Import-Module -Name '$stage\NewRandomPassword.psd1' -PassThru -ErrorAction Stop; `$staged.NestedModules.Path; `$staged.ExportedAliases['rpas'].Definition"
 			$output = & $executable -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command $command 2>&1
 
 			$LASTEXITCODE | Should-Be 0 -Because ($output -join [System.Environment]::NewLine)
-			$output | Should-BeLikeString -Expected "*\NewRandomPassword\$folder\MG.Passwords.Shell.dll"
+			$output | Should-BeCollection -Count 2
+			$output[0] | Should-BeLikeString -Expected "*\NewRandomPassword\$folder\MG.Passwords.Shell.dll"
+			$output[1] | Should-Be 'New-RandomPassword'
 		}
 
 		# PowerShell 7.5 and earlier run on .NET 9 or earlier, which can't load the .NET 10 build, and the release notes

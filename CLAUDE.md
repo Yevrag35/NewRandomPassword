@@ -8,8 +8,6 @@ The whole repo is being overhauled on `dev`. Every part of the C# solution can c
 
 ## Reference points
 
-- **What's on the Gallery:** 1.2.0, built from `accaf2e`. Diff the cmdlet's parameters and aliases against that commit to spot breaking changes for existing users.
-- **Bug fixes after 1.2.0 (#3, `8e90f21`):** `-FirstCharacter` always comes first, and each password in a `-MinimumLength`/`-MaximumLength` batch gets its own random length. If password generation gets rewritten, test for both again.
 - **`archive/DifferentApproach` tag:** an abandoned 2020 rewrite (it includes the old `Maybe` branch). Use it for reference only. Don't copy the SecureString/unsafe byte handling in its `PasswordHolder`: it left an unzeroed BSTR copy of every password in memory and garbled non-ASCII characters.
 
 ## Plans
@@ -18,5 +16,5 @@ Multi-session plans live in `.ideas/`, one file per topic, and `.ideas/new-rando
 
 ## Building and testing
 
-- Windows PowerShell 5.1 (`powershell.exe`) and PowerShell 7 (`pwsh`) are both installed. The module has supported both editions so far; whether it keeps doing that is part of the overhaul.
+- Windows PowerShell 5.1 (`powershell.exe`) and PowerShell 7 (`pwsh`) are both supported editions.
 - Before running a Release build, check where its output goes. At 1.2.0, Release builds wrote straight into the module folder that's checked into git.

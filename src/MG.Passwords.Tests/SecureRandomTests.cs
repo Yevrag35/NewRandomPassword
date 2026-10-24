@@ -66,7 +66,7 @@ public sealed class SecureRandomTests
 			counts[SecureRandom.GetInt32(counts.Length)]++;
 		}
 
-		AssertEquallyLikely(counts);
+		Distribution.AssertEquallyLikely(counts);
 	}
 
 	// Drawing j below i instead of up to i (Sattolo's algorithm) produces only the 2 rotations of 3 elements, and drawing j
@@ -87,7 +87,7 @@ public sealed class SecureRandomTests
 
 		string[] expected = ["abc", "acb", "bac", "bca", "cab", "cba"];
 		Assert.Equal(expected, counts.Keys.OrderBy(static order => order, StringComparer.Ordinal));
-		AssertEquallyLikely(counts.Values);
+		Distribution.AssertEquallyLikely(counts.Values);
 	}
 
 	// With -FirstCharacter, a password of 1 character leaves an empty slice to shuffle, and one of 2 characters leaves a
@@ -101,17 +101,5 @@ public sealed class SecureRandomTests
 		SecureRandom.Shuffle(letters.AsSpan());
 
 		Assert.Equal(text, new string(letters));
-	}
-
-	// Fails when a count is more than 7 standard deviations from the average count of equally likely outcomes. When the
-	// outcomes are equally likely, that happens to a count about once in 400 billion tries, so the tests don't fail by
-	// chance.
-	private static void AssertEquallyLikely(ICollection<int> counts)
-	{
-		int trials = counts.Sum();
-		double p = 1.0 / counts.Count;
-		double expected = trials * p;
-		double tolerance = 7 * Math.Sqrt(trials * p * (1 - p));
-		Assert.All(counts, count => Assert.InRange(count, expected - tolerance, expected + tolerance));
 	}
 }

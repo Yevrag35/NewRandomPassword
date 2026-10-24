@@ -1,6 +1,6 @@
 # Plan: Rewrite New-RandomPassword
 
-> **Status:** Phases 1 to 3 done 2026-10-24. `MG.Passwords` builds the passwords, both shell projects ship `New-RandomPassword` and `rpas` with the 1.2.0 surface and the behavior that **What changes from 1.2.0** lists, and a MAML help file and the README describe them. Phase 4 (tests) remains.
+> **Status:** Phases 1 to 4 done 2026-10-24. `MG.Passwords` builds the passwords, both shell projects ship `New-RandomPassword` and `rpas` with the 1.2.0 surface and the behavior that **What changes from 1.2.0** lists, a MAML help file and the README describe them, and engine and Pester tests pin that surface and behavior down, the two #3 fixes among them. What's left is under **Out of scope**.
 
 ## Context
 
@@ -31,7 +31,7 @@ Done on 2026-10-23 on #4's branch, before `SecureRandom.cs` and `SecureRandomTes
 | Loading dependencies in Windows PowerShell 5.1 | `ModuleInitializer` in the `net48` shell | Nothing, as long as the engine adds no package. Phases 1 and 2 added none. |
 | Manifest and `.psm1` | Version 2.0.0. Exported `New-RandomPassword` and `rpas`, and loaded the build for each edition. | Release notes, which Phase 2 added, and the help file in `FileList`, which Phase 3 added |
 | Help | None. 1.2.0 had none either. | A MAML help file, which Phase 3 added in `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml` |
-| Tests | `Module.Tests.ps1`, the runspace fixture, and `SecureRandomTests` | Cmdlet and engine tests (Phase 4) |
+| Tests | `Module.Tests.ps1`, the runspace fixture, and `SecureRandomTests` | Cmdlet and engine tests, which Phase 4 added in `tests/New-RandomPassword.Tests.ps1` and `src/MG.Passwords.Tests/` |
 
 The audit also measured, with a throwaway module in both editions, that a binary cmdlet's `[Alias]` alias reaches the caller through a manifest whose `RootModule` is a `.psm1` that imports the DLL. 1.2.0 named its DLL as the `RootModule`, so this path is new in 2.0.0, and it needs no change to `NewRandomPassword.psm1`.
 
@@ -150,7 +150,7 @@ Nothing goes through `SecureString`, a BSTR, or an `Encoding`. The archived `Pas
 
 ### Tests come last
 
-Phases 1 to 3 are verified by hand (see Verification) and keep the existing suites passing. Phase 4 writes the new tests once the surface has stopped moving. The two #3 bugs are tested there again, as `CLAUDE.md` requires, and each of those tests is run once against 1.2.0 to show that it fails there. `SecureRandomTests.cs` came with `SecureRandom` in #4, because it isn't new work for this plan: it was written with `SecureRandom`, whose surface this plan doesn't change.
+Phases 1 to 3 were verified by hand (see Verification) and kept the existing suites passing. Phase 4 wrote the new tests once the surface had stopped moving. The two #3 bugs are tested there again, as `CLAUDE.md` requires, and each of those tests was run once against 1.2.0, where it fails. `SecureRandomTests.cs` came with `SecureRandom` in #4, because it isn't new work for this plan: it was written with `SecureRandom`, whose surface this plan doesn't change.
 
 ## Architecture sketch
 
@@ -252,33 +252,51 @@ Three changes weren't planned:
 
 - One of Phase 2's `ReleaseNotes` lines, "Every distinct character is equally likely", claimed more than the generator does, because the character that each group supplies makes the characters of a small group more likely than the rest. The line now says what the generator does: a character that a group lists twice is as likely as the group's other characters, and the fill draws from the distinct characters of all the groups. The README says the same, and so does the 2.0.0 column of that row of **What changes from 1.2.0**.
 - Two facts about how Get-Help prints a help file, measured on 2026-10-24 in both editions and added to `references/help.md`, set how the file is written. A line break inside a `maml:para` prints as one, followed by the file's indentation, so each paragraph is one line of the file. A line of code longer than the console wraps at a space, so each line of an example's code fits in 76 characters, an 80-character console less Get-Help's indent, which is why the `-OnlyUseExtraCharacters` example gives its length by position.
-- `references/help.md` said that help made up from the cmdlet has the type `CmdletHelpInfo`, and help from a file the type `MamlCommandHelpInfo#<module>#<cmdlet>`. Both are among the help object's type names, but made-up help's first type name is `ExtendedCmdletHelpInfo`, and `-Full` puts names that end in `#FullView` in front of the rest. The reference now lists the type names, measured on 2026-10-24 in both editions, and says to look for `MamlCommandHelpInfo` among them, as Phase 4's 'Help' test will.
+- `references/help.md` said that help made up from the cmdlet has the type `CmdletHelpInfo`, and help from a file the type `MamlCommandHelpInfo#<module>#<cmdlet>`. Both are among the help object's type names, but made-up help's first type name is `ExtendedCmdletHelpInfo`, and `-Full` puts names that end in `#FullView` in front of the rest. The reference now lists the type names, measured on 2026-10-24 in both editions, and says to look for `MamlCommandHelpInfo` among them, as Phase 4's 'Help' test does.
 
 **Outcome:** in both editions, `Get-Help New-RandomPassword` shows the hand-written help, whether the DLL is imported by its path or the module through its manifest, and the README describes 2.0.0 and what changed from 1.2.0.
 
-### Phase 4 — Tests
+### Phase 4 — Tests. ✅ Done — 2026-10-24.
 
-Each test follows the `nrp-testing` skill, which says how to write it for both editions and where its expected values come from.
+Shipped: a test class for `PasswordGenerator` and one for each of the three attributes in `src/MG.Passwords.Tests/`, `tests/New-RandomPassword.Tests.ps1`, and the alias check in `tests/Module.Tests.ps1`. Each test follows the `nrp-testing` skill, which says how to write it for both editions and where its expected values come from.
 
 Engine tests, in `src/MG.Passwords.Tests/`, one class per type:
 
-- `PasswordGeneratorTests`: the first character is at index 0 of every password in a large batch; `GetLength` returns every value of a small range and no other, including a range that ends at `int.MaxValue`; every password that's long enough holds a character from each group; with fewer slots than groups, every group shows up across a batch and no password repeats one; the fill draws each distinct character equally often, repeats included, in the `AssertEquallyLikely` style of `SecureRandomTests`; a group listed twice guarantees two characters; non-ASCII characters come through unchanged; lengths 1, 256, and 257, on both sides of the `stackalloc` limit; 257 groups with fewer slots, which rents the group indices; the scratch buffers coming back cleared, where the array that `ArrayPool<T>.Shared` hands out next, after a password of 257 characters (`net48` only, since `net10.0` writes into the string) or one with fewer characters than its 257 groups (both targets), holds no characters or indices, checked only after the pool has been shown to hand out the array returned to it last; and each `ArgumentNullException`, `ArgumentException`, and `ArgumentOutOfRangeException`.
-- A class for each transformation attribute, calling `Transform` with `RunspaceFixture.EngineIntrinsics`: each accepted form, wrapped in a `PSObject` and not, and each refused one, with its exception type. For `FirstCharacterTransformationAttribute`, that includes 0, 9, 10, and a wrapped integer.
-- `ValidatePasswordCharactersAttributeTests`, through the attribute's internal rule: a control character at each end of both `char.IsControl` ranges, a lone high and a lone low surrogate, an empty string, and characters just outside those ranges, which pass.
+- `PasswordGeneratorTests`: the first character is at index 0 of every password in a batch of 1,000, at lengths 2, 8, and 257, and a password of 1 character is the first character alone; `GetLength` returns every value of a small range and no other, including two ranges that end at `int.MaxValue`; every password that's long enough holds a character from each group, and with a first character that belongs to a group, so do the characters after it; with fewer slots than groups, every group shows up across a batch and no password repeats one, with and without a first character; each distinct character is equally likely, repeats included, in the `AssertEquallyLikely` style of `SecureRandomTests`, as the character that a group supplies and in the fill; a group listed twice guarantees two characters; non-ASCII characters come through unchanged; lengths 1, 256, and 257, on both sides of the `stackalloc` limit; 256 and 257 groups with fewer slots, where 257 rents the group indices; the scratch buffers coming back cleared, where the array that `ArrayPool<T>.Shared` hands out next, after a password of 257 characters (`net48` only, since `net10.0` writes into the string) or one with fewer characters than its 257 groups (both targets), holds no characters or indices, checked only after the pool has been shown to hand out the array returned to it last, and filled with another value first, so that an array the generator never wrote to can't pass for a cleared one; and each `ArgumentNullException`, `ArgumentException`, and `ArgumentOutOfRangeException`, with the parameter that it names.
+- `CharacterGroupsTransformationAttributeTests` and `FirstCharacterTransformationAttributeTests`, which call `Transform` with `RunspaceFixture.EngineIntrinsics`: each accepted form, wrapped in a `PSObject` and not, and each refused one, with its exception type and the type, or the index and type of the element, that its message names. For `FirstCharacterTransformationAttribute`, which refuses nothing, that includes 0, 9, 10, and a wrapped integer, each integral type and `BigInteger`, and the arguments that it passes on unchanged.
+- `ValidatePasswordCharactersAttributeTests`, through the attribute's internal rule: a control character at each end of both `char.IsControl` ranges and both ends of the high and the low surrogates, each on its own and inside a group, with its code point in the message; an empty string; and the characters just outside those ranges, which pass.
 
 Pester tests, in `tests/New-RandomPassword.Tests.ps1`, with a `Context` per parameter or feature:
 
-- 'Parameters': the cmdlet's parameter sets and parameters match the 1.2.0 table with this plan's changes, so a later edit can't drop an alias or move a position unnoticed. The expected values are written into the test, with a comment that they come from `accaf2e`.
-- 'FirstCharacter': every password in a large batch starts with it (#3); `-PasswordLength 1` gives it alone; `-FirstCharacter 5` starts each password with the digit 5; and `-FirstCharacter 65` and a control character fail at binding.
-- 'MinimumLength and MaximumLength': one batch holds more than one length (#3); over enough passwords, every length in a small range shows up and none outside it; equal bounds give that length; and a minimum above the maximum fails with `MinimumLengthExceedsMaximumLength`.
+- 'Parameters': the cmdlet's parameter sets and parameters match the 1.2.0 table with this plan's changes, so a later edit can't drop an alias or move a position unnoticed: the two sets and the default one, no parameters beyond the eight and the common ones, and each parameter's type, aliases, `ValidateRange`, sets, and its position and mandatory flag in each set. The expected values are written into the test, with a comment that they come from `accaf2e`.
+- 'FirstCharacter': every password in a batch of 400 starts with it (#3); `-PasswordLength 1` gives it alone; `-FirstCharacter 5` starts each password with the digit 5; and `-FirstCharacter 65`, a control character, and half of a surrogate pair fail at binding.
+- 'MinimumLength and MaximumLength': one batch holds more than one length (#3); over 300 passwords, every length in a range of three shows up and none outside it; equal bounds give that length; and a minimum above the maximum fails with `MinimumLengthExceedsMaximumLength`, in the `InvalidArgument` category.
 - 'Positional binding': `New-RandomPassword 12 3`, and `-MinimumLength 4 -MaximumLength 6 3`.
-- 'Character groups': the default output uses only the 61 default characters; every password of 4 or more characters has a character from each default group; and some 2-character passwords hold a digit or a symbol.
-- 'ExtraCharacters': a string, a `string[]`, a `char[]`, a `char`, and `Get-Content` output of one line and of several, with and without `-OnlyUseExtraCharacters`; the error for each refused form, a control character among them; and a non-ASCII character, written as `[char]0x00E9` so that the file stays ASCII.
+- 'Character groups': the default output uses the 61 default characters, all of them and no other; every password of 4, 5, or 8 characters has a character from each default group; and some passwords of 2 characters, and of 3, hold a symbol.
+- 'ExtraCharacters': a string, a `string[]`, a `char[]`, a `char`, and `Get-Content` output of one line and of two, with and without `-OnlyUseExtraCharacters`, and a `char[]` kept together as one group; the error for each refused form, a control character among them; and a non-ASCII character, written as `[char]0x00E9` so that the file stays ASCII.
 - 'OnlyUseExtraCharacters': with `-ExtraCharacters`, the passwords hold only its characters, whether or not `-InputStrings` is given; without it, the switch fails with `OnlyUseExtraCharactersWithoutExtraCharacters`, with `-InputStrings` too; and `-OnlyUseExtraCharacters:$false` without `-ExtraCharacters` generates from the default groups.
-- 'Help': `Get-Help MG.Passwords.Shell\New-RandomPassword -Full` returns a `MamlCommandHelpInfo`, which fails when the build doesn't copy the file, and its syntax blocks and parameters match the cmdlet's (`references/help.md`).
-- In `Module.Tests.ps1`, 'loads the build for this edition' also checks that the staged manifest exports `rpas` for `New-RandomPassword`. The other tests import the DLL by its path, so nothing else covers the alias through the manifest.
+- 'Help': `Get-Help MG.Passwords.Shell\New-RandomPassword -Full` returns a `MamlCommandHelpInfo`, so the test fails when the build doesn't copy the file, and its syntax blocks and parameters match the cmdlet's (`references/help.md`): each syntax block lists its set's parameters in the order of the set's syntax, with their required flags, positions, and types, and no value for the switch, and the parameters are the cmdlet's, with their required flags, positions, types, aliases, and pipeline input.
+- In `Module.Tests.ps1`, 'loads the build for this edition', now named 'loads the build for this edition and exports rpas', also checks that the staged manifest exports `rpas` for `New-RandomPassword`. The other tests import the DLL by its path, so nothing else covers the alias through the manifest.
 
-Each #3 test also runs once against 1.2.0, from a scratch copy of the test file that imports the installed 1.2.0 manifest, or `accaf2e`'s DLLs, by its path, to see it fail there.
+Each #3 test also ran once against 1.2.0, from a scratch copy of the test file that imports by its path the manifest of a downloaded copy of the Gallery package, whose DLLs match `accaf2e`'s. Both fail there in PowerShell 7.6.8 and Windows PowerShell 5.1.26100.9711 (2026-10-24): `-FirstCharacter` came first in only 212 and 202 of the 400 passwords, and each batch of random lengths had one length.
+
+Phase 4 also added tests that the plan didn't list:
+
+- An 'InputStrings' Context, because no listed test showed that `-InputStrings` takes the place of the default groups. It does; each value is used as typed, so the lowercase group typed in capitals gives capitals, D and I among them; and a group listed twice supplies two characters.
+- 'Character groups' checks `NoCharacters`, in the `InvalidArgument` category, for `-InputStrings @()` and for `-ExtraCharacters @()` with `-OnlyUseExtraCharacters`, the row of **What changes from 1.2.0** that no listed test covered.
+- 'Parameters' checks the default of one password of 8 characters, the seven `ValidateSet` values of `-InputStrings` in order and its `IgnoreCase`, the output type, and that no parameter takes pipeline input.
+- `CharacterGroupsTransformationAttributeTests` checks that the transformation disposes of the enumerator of a collection that it refuses, which Phase 2 did for enumerators that hold a resource, such as that of `File.ReadLines`. It, the validation tests, and the generator tests also refuse a surrogate pair, an emoji, beside the lone surrogates.
+
+Four details differ from the plan:
+
+- The equal-likelihood check is two tests. With one group and passwords of 1 character, each draw is the character that the group supplies. With the groups "a", "bc", "bd", and "cd", which supply each character once per password on average, only the fill could favor one, and the passwords have 100 characters. One test with passwords of 100 characters couldn't see repeats within a group, because the character that a group supplies is 1 draw in 100: on 2026-10-24, on both targets, it passed against an engine that kept them.
+- `AssertEquallyLikely` moved out of `SecureRandomTests` into `Distribution.AssertEquallyLikely`, in `src/MG.Passwords.Tests/Distribution.cs`, so that the two classes that call it share its 7-standard-deviation rule.
+- `PasswordGeneratorTests` runs in `SharedArrayPoolCollection`, in `src/MG.Passwords.Tests/SharedArrayPoolCollection.cs`, which runs on its own, after the other tests. In the `net48` tests, `ArrayPool<T>.Shared` is System.Buffers 4.0.5.0's `DefaultArrayPool<T>`, whose arrays all threads share, so a test running at the same time could take or return the array that a buffer test checks. In `net10.0`, it's `SharedArrayPool<T>`, which hands a thread back the array that the thread returned last. On one thread, both hand out the array returned last (measured 2026-10-24 in PowerShell 7.6.8 and Windows PowerShell 5.1.26100.9711).
+- 'Character groups' checks for a symbol in passwords of 2 and of 3 characters, where the plan said a digit or a symbol in passwords of 2. The symbols are the last default group, which 1.2.0 never reached below 4 characters, so the check covers both lengths in that row of **What changes from 1.2.0**.
+
+The `nrp-testing` skill gained three rules from this phase: a theory gets a lone surrogate as a `char`, because an attribute stores a string argument as UTF-8, which has no encoding for one; a test of which arrays `ArrayPool<T>.Shared` hands out goes in `SharedArrayPoolCollection`; and for a binding error, the record that `Should-Throw` returns holds a `ParentContainsErrorRecordException` in place of the `ParameterBindingException`, so the exception's own properties, such as `ParameterName`, aren't there (measured 2026-10-24 with Pester 6.2.0 in both editions).
+
+**Outcome:** a later change that drops an alias, moves a position, ships a stale help file, or brings back either #3 bug or one of 1.2.0's crashes fails a test in both editions.
 
 ### Out of scope
 
@@ -299,8 +317,10 @@ Each #3 test also runs once against 1.2.0, from a scratch copy of the test file 
 - `src/MG.Passwords/ValidatePasswordCharactersAttribute.cs` (Phase 2): refuses control characters, surrogates, and empty groups in both parameters.
 - `src/MG.Passwords.Shell/NewRandomPasswordCommand.cs` (Phase 2): the cmdlet, for both shells.
 - `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml` (Phase 3): help for both editions.
-- `src/MG.Passwords.Tests/PasswordGeneratorTests.cs`, a test class per transformation attribute, and `ValidatePasswordCharactersAttributeTests.cs` (Phase 4).
-- `tests/New-RandomPassword.Tests.ps1` (Phase 4).
+- `src/MG.Passwords.Tests/PasswordGeneratorTests.cs`, `CharacterGroupsTransformationAttributeTests.cs`, `FirstCharacterTransformationAttributeTests.cs`, and `ValidatePasswordCharactersAttributeTests.cs` (Phase 4): the engine tests.
+- `src/MG.Passwords.Tests/Distribution.cs` (Phase 4, not planned): the equal-likelihood assertion that two test classes share.
+- `src/MG.Passwords.Tests/SharedArrayPoolCollection.cs` (Phase 4, not planned): the test collection that keeps other tests from using the shared pool while a buffer test checks it.
+- `tests/New-RandomPassword.Tests.ps1` (Phase 4): the cmdlet's Pester tests.
 
 ## Modified files
 
@@ -309,6 +329,7 @@ Each #3 test also runs once against 1.2.0, from a scratch copy of the test file 
 - `src/MG.Passwords.Shell/MG.Passwords.Shell.csproj` and `src/MG.Passwords.Shell-NETFramework/MG.Passwords.Shell-NETFramework.csproj`: copy the help file into `en-US\` (Phase 3).
 - `README.md`: 2.0.0 (Phase 3).
 - `tests/Module.Tests.ps1`: the alias through the manifest (Phase 4).
+- `src/MG.Passwords.Tests/SecureRandomTests.cs`: calls the shared `Distribution.AssertEquallyLikely` (Phase 4, not planned).
 
 Not modified: `NewRandomPassword.psm1`, `ModuleInitializer.cs`, and `src/Directory.Packages.props`.
 
