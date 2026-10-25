@@ -83,3 +83,7 @@ New-RandomPassword 16 -CharacterSet NoLookAlikes, Symbols
 - `-OnlyUseExtraCharacters` without `-ExtraCharacters` is an error. 1.2.0 ignored the switch.
 - A minimum length greater than the maximum, and arguments that leave no characters to draw from, end the command with an error of their own. 1.2.0 threw raw exceptions, such as `DivideByZeroException`.
 - `-PasswordLength` and `-MaximumLength` take at most 1,048,576 characters, and `-MinimumLength` at most 1,048,575. 1.2.0 accepted lengths that no string can hold.
+
+## License
+
+NewRandomPassword is released under the [MIT License](LICENSE). 1.2.0 was released under the GNU General Public License v3.0. The module also includes code from .NET and from PolySharp, both under the MIT License, and `THIRD-PARTY-NOTICES.txt` in the module's folder holds their notices.

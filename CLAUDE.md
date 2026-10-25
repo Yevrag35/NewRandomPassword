@@ -13,7 +13,7 @@ The module runs on Windows PowerShell 5.1 (`powershell.exe`) and on PowerShell 7
 | `src/MG.Passwords.Shell-NETFramework/` | The Windows PowerShell 5.1 build of the cmdlet (`net48`). It compiles every `.cs` file of `MG.Passwords.Shell` and adds `ModuleInitializer`, so shell code goes in `MG.Passwords.Shell`, and this project holds only what Windows PowerShell 5.1 alone needs. Both shell projects build `MG.Passwords.Shell.dll`. |
 | `src/MG.Passwords.Tests/` | xUnit.net v3 tests of the engine. The `net10.0` target tests the engine's `net10.0` build in the PowerShell 7 that the `Microsoft.PowerShell.SDK` package brings, and the `net48` target tests its `netstandard2.0` build in the Windows PowerShell 5.1 that's installed with Windows. |
 | `tests/` | Pester 6 tests, which import the build and test the module the way a user runs it. |
-| `NewRandomPassword/` | The module as it ships: the manifest, `NewRandomPassword.psm1`, the help file in `en-US/`, and the Release DLLs in `Core/` (PowerShell 7) and `Desk/` (Windows PowerShell 5.1). |
+| `NewRandomPassword/` | The module as it ships: the manifest, `NewRandomPassword.psm1`, the help file in `en-US/`, the license and the third-party notices, and the Release DLLs in `Core/` (PowerShell 7) and `Desk/` (Windows PowerShell 5.1). |
 | `tools/check-bytes.ps1` | Checks files for a BOM, CRLF line endings, and invalid UTF-8. |
 
 `NewRandomPassword.slnx` holds every project. `src/Directory.Build.props` holds the settings that the projects share, the version and the global usings among them. `src/Directory.Packages.props` holds every package version, so a `PackageReference` names none. The root namespace is `MG.Passwords` in every project but the tests, whose root namespace is `MG.Passwords.Tests`.
@@ -56,6 +56,11 @@ Both suites run every test in Windows PowerShell 5.1 and in PowerShell 7. Use st
 - Leave the manifest's `HelpInfoURI` unset until there's a hosted folder of updatable help. Any other URL makes `Update-Help` fail.
 - The help is hand-written MAML, in `NewRandomPassword/en-US/MG.Passwords.Shell.dll-Help.xml`, and both shell projects copy it into `en-US/` in their build output. Get-Help shows the syntax and the parameters as the file writes them, not as the cmdlet declares them, so a change to a parameter changes the file too.
 - Three places describe the cmdlet to its users: the help file, `README.md`, and the manifest's `ReleaseNotes`. A change that users can see updates all three.
+
+## License
+
+- The module is under the MIT License. The root `LICENSE`, which GitHub reads, and `NewRandomPassword/LICENSE.txt`, which ships, change together, and a Pester test fails while they differ.
+- `NewRandomPassword/THIRD-PARTY-NOTICES.txt` holds the license notice of each other project whose code ships, in a DLL of its own, such as `System.Memory.dll`, or compiled into the module's DLLs, such as the polyfills that PolySharp generates. Code from another project that starts to ship adds its notice there.
 
 ## Text files
 

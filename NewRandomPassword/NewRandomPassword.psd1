@@ -97,8 +97,10 @@ FileList = @(
     'Desk\System.Numerics.Vectors.dll',
     'Desk\System.Runtime.CompilerServices.Unsafe.dll',
     'en-US\MG.Passwords.Shell.dll-Help.xml',
+    'LICENSE.txt',
     'NewRandomPassword.psd1',
-    'NewRandomPassword.psm1'
+    'NewRandomPassword.psm1',
+    'THIRD-PARTY-NOTICES.txt'
 )
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
@@ -124,6 +126,8 @@ PrivateData = @{
         # ReleaseNotes of this module
         ReleaseNotes = @'
 2.0.0 runs on Windows PowerShell 5.1 and on PowerShell 7.6 or later. In PowerShell 7.5 or earlier, the import fails with an error that says so.
+
+2.0.0 is released under the MIT License, in place of 1.2.0's GNU General Public License v3.0.
 
 Every parameter, alias, position, and parameter set of 1.2.0 stays, and so does every default but the character groups. What changes from 1.2.0:
 

@@ -34,6 +34,13 @@ Describe 'NewRandomPassword module' {
 		(Get-Item -LiteralPath $module.Path).VersionInfo.FileVersion | Should-Be $manifest.ModuleVersion
 	}
 
+	# GitHub reads the license from LICENSE, and the module ships a copy as LICENSE.txt, so the two change together.
+	It 'ships the same license as the repository' {
+		$repositoryLicense = Get-Content -LiteralPath "$PSScriptRoot/../LICENSE" -Raw
+		$shippedLicense = Get-Content -LiteralPath "$PSScriptRoot/../NewRandomPassword/LICENSE.txt" -Raw
+		$shippedLicense | Should-BeString -Expected $repositoryLicense -CaseSensitive
+	}
+
 	It 'does not answer a request for a dependency version that it does not reference' {
 		# Without NewRandomPassword, the load fails because no System.Memory 99.0.0.0 exists. In Windows PowerShell 5.1, the
 		# module's assembly resolver must not answer it with the module's own copy. PowerShell 7 has no such resolver.
